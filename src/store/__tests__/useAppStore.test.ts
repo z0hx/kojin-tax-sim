@@ -10,7 +10,7 @@ vi.mock('../../persistence/exporter', async (importOriginal) => {
 import { clearAppData, loadAppData } from '../../persistence/repository';
 import { resetDbConnectionForTests } from '../../persistence/db';
 import { resetSaveQueueForTests, flushNow } from '../saveQueue';
-import { createAppStore } from '../useAppStore';
+import { createAppStore, DEFAULT_MUNICIPALITY } from '../useAppStore';
 import { installMemoryLocalStorage, stubFetchForTaxParams, uninstallMemoryLocalStorage, yokohamaMunicipality } from './testUtils';
 import { CURRENT_SCHEMA_VERSION } from '../../persistence/migration';
 import { emptyAppData, type AppData } from '../../persistence/types';
@@ -90,10 +90,16 @@ describe('useAppStore', () => {
       expect(s.calculationResult?.furusato.limitAmount).toBe(0); // 収入0なので上限も0
     });
 
-    it('municipalityを渡すとその人物のdefaults.municipalityに反映される(省略時は標準税率)', () => {
+    it('municipalityを渡すとその人物のdefaults.municipalityに反映される', () => {
       const id = store.getState().addPerson('本人', '#111111', yokohamaMunicipality());
       const person = store.getState().appData!.persons.find((p) => p.id === id)!;
       expect(person.defaults.municipality).toEqual(yokohamaMunicipality());
+    });
+
+    it('municipalityを省略した場合は標準税率(DEFAULT_MUNICIPALITY)になる', () => {
+      const id = store.getState().addPerson('本人', '#111111');
+      const person = store.getState().appData!.persons.find((p) => p.id === id)!;
+      expect(person.defaults.municipality).toEqual(DEFAULT_MUNICIPALITY);
     });
   });
 

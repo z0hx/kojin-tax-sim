@@ -24,6 +24,12 @@ function parsePercentToFraction(input: string): number | null {
   return n === null ? null : Number((n / 100).toFixed(6));
 }
 
+/** 均等割は常に整数円のため、非負の整数のみを受け付ける(小数はnullとしてブロックする) */
+function parseNonNegativeInteger(input: string): number | null {
+  const n = parseNonNegative(input);
+  return n === null || !Number.isInteger(n) ? null : n;
+}
+
 type Step = 1 | 2 | 3;
 
 /**
@@ -61,13 +67,13 @@ export function OnboardingScreen() {
 
   const municipalRate = parsePercentToFraction(municipalRatePct);
   const prefecturalRate = parsePercentToFraction(prefecturalRatePct);
-  const municipalCapita = parseNonNegative(municipalPerCapita);
-  const prefecturalCapita = parseNonNegative(prefecturalPerCapita);
+  const municipalCapita = parseNonNegativeInteger(municipalPerCapita);
+  const prefecturalCapita = parseNonNegativeInteger(prefecturalPerCapita);
   const rateErrors = {
     municipalRate: municipalRate === null ? '0以上の数値を入力してください' : null,
     prefecturalRate: prefecturalRate === null ? '0以上の数値を入力してください' : null,
-    municipalCapita: municipalCapita === null ? '0以上の数値を入力してください' : null,
-    prefecturalCapita: prefecturalCapita === null ? '0以上の数値を入力してください' : null,
+    municipalCapita: municipalCapita === null ? '0以上の整数(円)を入力してください' : null,
+    prefecturalCapita: prefecturalCapita === null ? '0以上の整数(円)を入力してください' : null,
   };
   const hasRateError = Object.values(rateErrors).some(Boolean);
 
