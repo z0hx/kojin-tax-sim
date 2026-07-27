@@ -266,6 +266,10 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       await finalizeAfterYearSwitch(set, get, state.activePersonId, year);
     },
 
+    // 注意: 既存のyears[year]があれば無条件で上書きする。現状の呼び出し元(IncomeScreenの初年度作成導線)は
+    // activeYearがnull(=対象人物にまだ年度データが1件も無い)ときにしか呼ばないため上書きは起こらないが、
+    // 将来ダッシュボード等で年度切替/追加UIからも呼ぶ場合は、既存年度への誤上書きを防ぐガード
+    // (確認ダイアログ等)を呼び出し側に追加すること。
     async createBlankYear(year) {
       const state = get();
       if (!state.appData || !state.activePersonId) return;

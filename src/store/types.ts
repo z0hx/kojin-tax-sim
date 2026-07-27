@@ -24,8 +24,10 @@ export type AppError = ImportError | CryptoError | ValidationError | StorageErro
  *  注意: `furusatoConservative`のうち実際にconservativeモードの値なのは`limitAmount`/`recommendedAmount`のみ。
  *  `specialCapReached`/`breakdown`はstandardモードの値のコピーであり、conservativeモードでの実際の値ではない
  *  (engine.ts の buildCalculationResult 実装がそうなっているため)。S-05 CapModeComparisonToggle 実装時は注意。
+ *
+ *  `confidenceRatio`は収入見込みの確定率(実績月数/12, FR-03/W-06と同じ値)。S-02収入入力画面向けに公開している。
  */
-export type StoreCalculationResult = CalculationResult & { furusatoConservative: CalculationResult['furusato'] };
+export type StoreCalculationResult = CalculationResult & { furusatoConservative: CalculationResult['furusato']; confidenceRatio: number };
 
 export interface AppStoreState {
   /** nullは「まだloadInitialDataが完了していない」ことを表す。完了後は常に有効なAppData(空でもemptyAppData())になる */
