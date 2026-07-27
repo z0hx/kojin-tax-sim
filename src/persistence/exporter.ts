@@ -8,6 +8,14 @@ export interface ExportOptions {
   includeSettings: boolean;
 }
 
+const FORBIDDEN_FILENAME_CHARS = /[\\/:*?"<>|]/g;
+
+/** ファイル名の一部として安全に使えるよう、パス区切り文字やOS予約文字を除去する。空文字になった場合はnullを返す */
+export function sanitizeFilenamePart(raw: string): string | null {
+  const cleaned = raw.trim().replace(FORBIDDEN_FILENAME_CHARS, '_').slice(0, 40);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 export function buildFileName(target: string, encrypted: boolean, date: Date = new Date()): string {
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');

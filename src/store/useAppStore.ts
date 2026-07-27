@@ -2,10 +2,11 @@ import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { buildCalculationResult } from '../domain/engine';
 import type { YearProfile } from '../domain/types';
 import { loadAppData, saveAppData, clearAppData } from '../persistence/repository';
-import { emptyAppData, type AppData, type Person } from '../persistence/types';
+import { emptyAppData, defaultAppSettings, type AppData, type Person } from '../persistence/types';
 import { loadUiSettings, saveUiSettings } from '../persistence/settings';
-import { exportData as exportDataFile, buildFileName, saveBlob } from '../persistence/exporter';
+import { exportData as exportDataFile, buildFileName, saveBlob, sanitizeFilenamePart } from '../persistence/exporter';
 import { parseImportFile, buildImportPreview, applyImport } from '../persistence/importer';
+import { StorageError } from '../persistence/errors';
 import { loadTaxParams } from '../taxParams/loader';
 import type { TaxParams } from '../taxParams/schema';
 import * as saveQueue from './saveQueue';
@@ -29,7 +30,8 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function initialState(): AppStoreState {
+/** テスト用に公開(UIコンポーネントテストでシングルトンstoreを初期状態に戻すために使う) */
+export function initialState(): AppStoreState {
   return {
     appData: null,
     activePersonId: null,
@@ -322,6 +324,20 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       return newPerson.id;
     },
 
+    duplicatePerson(personId) {
+      const state = get();
+      if (!state.appData) return personId;
+      const source = state.appData.persons.find((p) => p.id === personId);
+      if (!source) return personId;
+      const now = nowIso();
+      const clone: Person = { ...structuredClone(source), id: crypto.randomUUID(), createdAt: now, updatedAt: now };
+      // activePersonIdは変更しない(複製操作中にヘッダーのPersonSelector表示が画面遷移なしに切り替わらないようにする)
+      const newAppData: AppData = { ...state.appData, persons: [...state.appData.persons, clone] };
+      set({ appData: newAppData });
+      saveQueue.schedule(newAppData);
+      return clone.id;
+    },
+
     renamePerson(personId, displayName) {
       const state = get();
       if (!state.appData) return;
@@ -353,9 +369,12 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       const persons = state.appData.persons.filter((p) => p.id !== personId);
       const newActivePersonId = wasActive ? (persons[0]?.id ?? null) : state.appData.activePersonId;
       const newAppData: AppData = { ...state.appData, persons, activePersonId: newActivePersonId };
+      // 残り0人になった場合はonboardingRequiredを立てる(そうしないと画面状態がonboardingRequired=falseのまま
+      // 人物ゼロ件という未定義の状態になる。レビューで発見)
+      const onboardingRequired = persons.length === 0;
 
       if (!wasActive) {
-        set({ appData: newAppData });
+        set({ appData: newAppData, onboardingRequired });
         saveQueue.schedule(newAppData);
         return;
       }
@@ -369,8 +388,73 @@ function createStoreImpl(set: Set, get: Get): AppStore {
         activePersonId: newActivePersonId,
         activeYear: newActiveYear,
         calculationResult: newResult,
+        onboardingRequired,
       });
       saveQueue.schedule(newAppData);
+      persistUiSelection(newActivePersonId, newActiveYear);
+    },
+
+    async deletePersonWithBackup(personId) {
+      const state = get();
+      if (!state.appData) return;
+      const person = state.appData.persons.find((p) => p.id === personId);
+      if (!person) return;
+
+      try {
+        const backupPayload: AppData = {
+          schemaVersion: state.appData.schemaVersion,
+          persons: [person],
+          activePersonId: null,
+          appSettings: defaultAppSettings(),
+        };
+        const blob = await exportDataFile(backupPayload, { personIds: 'all', includeSettings: false });
+        const target = sanitizeFilenamePart(person.displayName) ?? person.id.slice(0, 8);
+        await saveBlob(blob, buildFileName(`backup-${target}`, false));
+      } catch (e) {
+        const cause = e as { name?: string };
+        const message =
+          cause?.name === 'AbortError'
+            ? 'バックアップの保存がキャンセルされたため、人物を削除しませんでした。もう一度お試しください。'
+            : 'バックアップのエクスポートに失敗したため、人物を削除しませんでした。';
+        set({ lastError: new StorageError(message, e) });
+        return;
+      }
+
+      const wasActive = state.activePersonId === personId;
+      const persons = state.appData.persons.filter((p) => p.id !== personId);
+      const newActivePersonId = wasActive ? (persons[0]?.id ?? null) : state.appData.activePersonId;
+      const newAppData: AppData = { ...state.appData, persons, activePersonId: newActivePersonId };
+      const onboardingRequired = persons.length === 0;
+
+      try {
+        // 削除は不可逆操作のため、deleteAllData/commitImportと同様にデバウンスに任せず同期的に確定させる
+        await saveQueue.withLock(async () => {
+          saveQueue.cancelPendingTimer();
+          await saveQueue.run(() => saveAppData(newAppData));
+          saveQueue.recordSaved(newAppData);
+        });
+      } catch (e) {
+        set({ lastError: e as AppError });
+        return;
+      }
+
+      if (!wasActive) {
+        set({ appData: newAppData, onboardingRequired, lastError: null });
+        return;
+      }
+
+      const fallbackPerson = persons[0];
+      const years = fallbackPerson ? Object.keys(fallbackPerson.years).map(Number) : [];
+      const newActiveYear = years.length > 0 ? Math.max(...years) : null;
+      const newResult = computeResult(newAppData, newActivePersonId, newActiveYear, state.taxParams);
+      set({
+        appData: newAppData,
+        activePersonId: newActivePersonId,
+        activeYear: newActiveYear,
+        calculationResult: newResult,
+        onboardingRequired,
+        lastError: null,
+      });
       persistUiSelection(newActivePersonId, newActiveYear);
     },
 
@@ -465,6 +549,10 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       if (activeYear !== null) {
         await finalizeAfterYearSwitch(set, get, activePersonId, activeYear);
       }
+    },
+
+    clearLastError() {
+      set({ lastError: null });
     },
 
     async requestPersistence() {

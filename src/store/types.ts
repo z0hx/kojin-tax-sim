@@ -65,12 +65,19 @@ export interface AppStoreActions {
   addPerson(displayName: string, color: string): string;
   renamePerson(personId: string, displayName: string): void;
   setPersonColor(personId: string, color: string): void;
+  /** 人物を複製する(新しいidで年度データを含めて複製)。activePersonIdは変更しない。戻り値は複製先のid */
+  duplicatePerson(personId: string): string;
   deletePerson(personId: string): void;
+  /** 削除前にその人物単体のデータを非暗号化でエクスポート・ダウンロードさせ、成功した場合のみ削除する。
+   *  エクスポートが失敗・キャンセルされた場合は削除せずlastErrorをセットして終了する(S-10要件)。 */
+  deletePersonWithBackup(personId: string): Promise<void>;
   setSafetyRatio(ratio: number): void;
   setCapMode(mode: FurusatoCapMode): void;
   exportData(opts: ExportOptions): Promise<void>;
   previewImport(file: File, mode: ImportMode, passphrase?: string): Promise<void>;
   commitImport(mode: ImportMode): Promise<void>;
+  /** UIのエラーバナーを閉じるためlastErrorをnullに戻す。副作用は無い */
+  clearLastError(): void;
   requestPersistence(): Promise<void>;
   refreshStorageUsage(): Promise<void>;
   deleteAllData(): Promise<void>;
