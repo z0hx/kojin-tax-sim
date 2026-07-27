@@ -10,7 +10,7 @@ vi.mock('../../persistence/exporter', async (importOriginal) => {
 import { clearAppData, loadAppData } from '../../persistence/repository';
 import { resetDbConnectionForTests } from '../../persistence/db';
 import { resetSaveQueueForTests, flushNow } from '../saveQueue';
-import { createAppStore } from '../useAppStore';
+import { createAppStore, DEFAULT_MUNICIPALITY } from '../useAppStore';
 import { installMemoryLocalStorage, stubFetchForTaxParams, uninstallMemoryLocalStorage, yokohamaMunicipality } from './testUtils';
 import { CURRENT_SCHEMA_VERSION } from '../../persistence/migration';
 import { emptyAppData, type AppData } from '../../persistence/types';
@@ -88,6 +88,39 @@ describe('useAppStore', () => {
       expect(s.activeYear).toBe(2026);
       expect(s.calculationResult).not.toBeNull();
       expect(s.calculationResult?.furusato.limitAmount).toBe(0); // 収入0なので上限も0
+    });
+
+    it('municipalityを渡すとその人物のdefaults.municipalityに反映される', () => {
+      const id = store.getState().addPerson('本人', '#111111', yokohamaMunicipality());
+      const person = store.getState().appData!.persons.find((p) => p.id === id)!;
+      expect(person.defaults.municipality).toEqual(yokohamaMunicipality());
+    });
+
+    it('municipalityを省略した場合は標準税率(DEFAULT_MUNICIPALITY)になる', () => {
+      const id = store.getState().addPerson('本人', '#111111');
+      const person = store.getState().appData!.persons.find((p) => p.id === id)!;
+      expect(person.defaults.municipality).toEqual(DEFAULT_MUNICIPALITY);
+    });
+  });
+
+  describe('completeOnboarding(S-12オンボーディング完了)', () => {
+    it('人物を作成し、渡した自治体設定をdefaultsに反映し、appSettings.onboardingCompletedをtrueにする', async () => {
+      const id = await store.getState().completeOnboarding('本人', '#3366cc', yokohamaMunicipality());
+      const s = store.getState();
+      expect(s.activePersonId).toBe(id);
+      expect(s.onboardingRequired).toBe(false);
+      expect(s.appData!.appSettings.onboardingCompleted).toBe(true);
+      const person = s.appData!.persons.find((p) => p.id === id)!;
+      expect(person.defaults.municipality).toEqual(yokohamaMunicipality());
+    });
+
+    it('完了後は即座にIndexedDBへ保存される(デバウンス待ちを挟まなくても再読み込みで復元できる)', async () => {
+      await store.getState().completeOnboarding('本人', '#3366cc', yokohamaMunicipality());
+      // flushNow()を挟まずに直接再読み込みする。completeOnboarding内部でflushNow相当の即時保存が
+      // 行われていなければ、この時点でIndexedDBにはまだ書き込まれておらず読み込み結果が空になる
+      const reloaded = await loadAppData();
+      expect(reloaded?.persons).toHaveLength(1);
+      expect(reloaded?.appSettings.onboardingCompleted).toBe(true);
     });
   });
 

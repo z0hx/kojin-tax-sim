@@ -3,7 +3,7 @@ import { useAppStore } from './store/useAppStore';
 import { useNavigation } from './ui/navigation';
 import { Header } from './ui/components/Header';
 import { Disclaimer } from './ui/components/Disclaimer';
-import { WelcomeScreen } from './ui/screens/WelcomeScreen';
+import { OnboardingScreen } from './ui/screens/OnboardingScreen';
 import { PersonManagementScreen } from './ui/screens/PersonManagementScreen';
 
 export default function App() {
@@ -22,7 +22,7 @@ export default function App() {
   }
 
   if (onboardingRequired) {
-    return <WelcomeScreen />;
+    return <OnboardingScreen />;
   }
 
   return (
