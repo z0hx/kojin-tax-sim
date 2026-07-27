@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { ImportMode, ImportPreviewEntry } from '../../persistence/importer';
+import { daysSince, formatDateJa } from '../dateUtils';
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -12,18 +13,9 @@ function formatMB(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDateJa(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
 function formatDateTimeJa(iso: string): string {
   const d = new Date(iso);
   return `${formatDateJa(iso)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-function daysSince(iso: string): number {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }
 
 function persistenceStatusLabel(state: 'unsupported' | 'granted' | 'denied' | 'unknown'): string {

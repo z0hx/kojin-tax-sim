@@ -3,6 +3,7 @@ import { calcMedicalDeduction } from '../../domain/deductions';
 import type { MedicalInput, Yen } from '../../domain/types';
 import type { TaxParams } from '../../taxParams/schema';
 import { parseNonNegativeInt } from '../parseAmount';
+import { resolveWarningMessage } from '../warningMessages';
 
 interface MedicalDeductionFormProps {
   value: MedicalInput;
@@ -166,7 +167,7 @@ export function MedicalDeductionForm({ value, totalIncome, params, oneStopWarnin
 
       {oneStopWarningActive && (
         <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '0.85rem', margin: 0 }}>
-          医療費控除があるためワンストップ特例は利用できません(確定申告が必要です)。
+          {resolveWarningMessage({ messageKey: 'warning.oneStopInvalidWithMedical' })}
         </p>
       )}
     </div>
