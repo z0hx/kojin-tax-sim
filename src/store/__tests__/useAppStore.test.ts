@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** exporter.saveBlobはwindow/document依存のため、DOM無し(environment:'node')でも走るようスタブする(レビュー指摘Medium#7是正) */
-const { saveBlobMock } = vi.hoisted(() => ({ saveBlobMock: vi.fn(async () => {}) }));
+const { saveBlobMock } = vi.hoisted(() => ({ saveBlobMock: vi.fn(async (_blob: Blob, _filename: string) => {}) }));
 vi.mock('../../persistence/exporter', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../persistence/exporter')>();
   return { ...actual, saveBlob: saveBlobMock };
@@ -399,6 +399,45 @@ describe('useAppStore', () => {
     });
   });
 
+  describe('exportData', () => {
+    it('個別選択時はファイル名に人物の表示名を使う(生のUUIDを埋め込まない、レビューで発見の是正)', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      store.getState().addPerson('配偶者', '#222222');
+      await flushNow();
+
+      await store.getState().exportData({ personIds: [idA], includeSettings: true });
+
+      expect(saveBlobMock).toHaveBeenCalledTimes(1);
+      const filename = saveBlobMock.mock.calls[0][1] as string;
+      expect(filename).toContain('本人');
+      expect(filename).not.toContain(idA);
+      expect(store.getState().appData!.appSettings.lastExportedAt).not.toBeNull();
+      expect(store.getState().lastError).toBeNull();
+    });
+
+    it('対象人物を1人も選択していない場合はエクスポートせずlastErrorをセットする', async () => {
+      store.getState().addPerson('本人', '#111111');
+      await flushNow();
+
+      await store.getState().exportData({ personIds: [], includeSettings: true });
+
+      expect(saveBlobMock).not.toHaveBeenCalled();
+      expect(store.getState().lastError).not.toBeNull();
+      expect(store.getState().appData!.appSettings.lastExportedAt).toBeNull();
+    });
+
+    it('保存ダイアログのキャンセル(AbortError)の場合はその旨のメッセージをセットする', async () => {
+      store.getState().addPerson('本人', '#111111');
+      const abortError = new DOMException('The user aborted a request.', 'AbortError');
+      saveBlobMock.mockRejectedValueOnce(abortError);
+
+      await store.getState().exportData({ personIds: 'all', includeSettings: true });
+
+      expect(store.getState().lastError?.message).toContain('キャンセル');
+      expect(store.getState().appData!.appSettings.lastExportedAt).toBeNull();
+    });
+  });
+
   describe('setCapMode', () => {
     it('再計算されない(calculationResultの参照が変わらない)', async () => {
       store.getState().addPerson('本人', '#111111');
@@ -520,6 +559,34 @@ describe('useAppStore', () => {
       const s = store.getState();
       expect(s.importPreview).toBeNull();
       expect(s.lastError).not.toBeNull();
+    });
+
+    it('replaceモードの事前バックアップがキャンセルされた場合はインポートを中止し、プレビューはやり直せるよう残す', async () => {
+      store.getState().addPerson('本人', '#111111');
+      const incoming: AppData = { ...emptyAppData(), persons: [] };
+      await store.getState().previewImport(makeImportFile(incoming), 'replace');
+
+      const abortError = new DOMException('The user aborted a request.', 'AbortError');
+      saveBlobMock.mockRejectedValueOnce(abortError);
+      await store.getState().commitImport('replace');
+
+      const s = store.getState();
+      expect(s.lastError?.message).toContain('キャンセル');
+      expect(s.importPreview).not.toBeNull();
+      expect(s.appData!.persons.map((p) => p.displayName)).toContain('本人'); // 中止されデータは変更されていない
+    });
+
+    it('cancelImportPreviewでプレビューと保留中の取込データを破棄する', async () => {
+      store.getState().addPerson('本人', '#111111');
+      const incoming: AppData = { ...emptyAppData(), persons: [] };
+      await store.getState().previewImport(makeImportFile(incoming), 'replace');
+      expect(store.getState().importPreview).not.toBeNull();
+
+      store.getState().cancelImportPreview();
+
+      const s = store.getState();
+      expect(s.importPreview).toBeNull();
+      expect(s.pendingImportIncoming).toBeNull();
     });
   });
 

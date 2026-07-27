@@ -1,6 +1,6 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { buildCalculationResult } from '../domain/engine';
-import type { YearProfile } from '../domain/types';
+import { ValidationError, type YearProfile } from '../domain/types';
 import { loadAppData, saveAppData, clearAppData } from '../persistence/repository';
 import { emptyAppData, type AppData, type Person } from '../persistence/types';
 import { loadUiSettings, saveUiSettings } from '../persistence/settings';
@@ -99,6 +99,25 @@ function computeResult(
   const params = taxParams[year];
   if (!profile || !params) return null;
   return buildCalculationResult(profile, params);
+}
+
+/** エクスポートファイル名の{人物}部分を作る。'all'ならそのまま、個別選択なら表示名をサニタイズして繋げる
+ *  (レビューで発見: 個別選択の場合に生のUUIDがファイル名へそのまま出てしまっていた不具合の是正) */
+function buildExportTargetLabel(persons: Person[], personIds: string[] | 'all'): string {
+  if (personIds === 'all') return 'all';
+  const names = personIds
+    .map((id) => persons.find((p) => p.id === id)?.displayName)
+    .filter((n): n is string => Boolean(n))
+    .map((n) => sanitizeFilenamePart(n))
+    .filter((n): n is string => n !== null);
+  return names.length > 0 ? names.join('_').slice(0, 60) : 'selection';
+}
+
+/** showSaveFilePicker/ダウンロードの失敗を、ユーザーによるキャンセル(AbortError)とそれ以外で
+ *  メッセージを出し分けて包む(レビューで発見: exportData/commitImportが生の例外をそのまま出していた) */
+function friendlySaveBlobError(e: unknown, cancelMessage: string, failureMessage: string): StorageError {
+  const name = (e as { name?: string } | undefined)?.name;
+  return new StorageError(name === 'AbortError' ? cancelMessage : failureMessage, e);
 }
 
 function persistUiSelection(personId: string | null, year: number | null): void {
@@ -425,12 +444,13 @@ function createStoreImpl(set: Set, get: Get): AppStore {
         const target = sanitizeFilenamePart(person.displayName) ?? person.id.slice(0, 8);
         await saveBlob(blob, buildFileName(`backup-${target}`, false));
       } catch (e) {
-        const cause = e as { name?: string };
-        const message =
-          cause?.name === 'AbortError'
-            ? 'バックアップの保存がキャンセルされたため、人物を削除しませんでした。もう一度お試しください。'
-            : 'バックアップのエクスポートに失敗したため、人物を削除しませんでした。';
-        set({ lastError: new StorageError(message, e) });
+        set({
+          lastError: friendlySaveBlobError(
+            e,
+            'バックアップの保存がキャンセルされたため、人物を削除しませんでした。もう一度お試しください。',
+            'バックアップのエクスポートに失敗したため、人物を削除しませんでした。'
+          ),
+        });
         return;
       }
 
@@ -491,16 +511,24 @@ function createStoreImpl(set: Set, get: Get): AppStore {
     async exportData(opts) {
       const state = get();
       if (!state.appData) return;
+      if (opts.personIds !== 'all' && opts.personIds.length === 0) {
+        set({
+          lastError: new ValidationError([
+            { field: 'personIds', rule: 'nonEmpty', message: 'エクスポート対象の人物を1人以上選択してください' },
+          ]),
+        });
+        return;
+      }
       try {
         const blob = await exportDataFile(state.appData, opts);
-        const target = opts.personIds === 'all' ? 'all' : (opts.personIds[0] ?? 'selection');
+        const target = buildExportTargetLabel(state.appData.persons, opts.personIds);
         const filename = buildFileName(target, Boolean(opts.passphrase));
         await saveBlob(blob, filename);
         const newAppData = { ...state.appData, appSettings: { ...state.appData.appSettings, lastExportedAt: nowIso() } };
-        set({ appData: newAppData });
+        set({ appData: newAppData, lastError: null });
         saveQueue.schedule(newAppData);
       } catch (e) {
-        set({ lastError: e as AppError });
+        set({ lastError: friendlySaveBlobError(e, 'エクスポートの保存がキャンセルされました。', 'エクスポートに失敗しました。') });
       }
     },
 
@@ -527,7 +555,13 @@ function createStoreImpl(set: Set, get: Get): AppStore {
           const backupBlob = await exportDataFile(current, { personIds: 'all', includeSettings: true });
           await saveBlob(backupBlob, buildFileName('backup-before-replace', false));
         } catch (e) {
-          set({ lastError: e as AppError });
+          set({
+            lastError: friendlySaveBlobError(
+              e,
+              '置換前のバックアップ保存がキャンセルされたため、インポートを中止しました。',
+              '置換前のバックアップに失敗したため、インポートを中止しました。'
+            ),
+          });
           return;
         }
       }
@@ -567,6 +601,10 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       if (activeYear !== null) {
         await finalizeAfterYearSwitch(set, get, activePersonId, activeYear);
       }
+    },
+
+    cancelImportPreview() {
+      set({ importPreview: null, pendingImportIncoming: null, lastError: null });
     },
 
     clearLastError() {

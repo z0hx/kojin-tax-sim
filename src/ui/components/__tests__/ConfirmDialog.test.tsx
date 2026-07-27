@@ -57,4 +57,36 @@ describe('ConfirmDialog', () => {
     await userEvent.click(screen.getByRole('presentation'));
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  describe('requireTypedText(S-09 全データ削除の要確認入力)', () => {
+    it('指定した文字列と一致するまで確認ボタンが無効化される', async () => {
+      const onConfirm = vi.fn();
+      render(<ConfirmDialog title="t" message="m" requireTypedText="削除" confirmLabel="削除する" onConfirm={onConfirm} onCancel={vi.fn()} />);
+
+      const confirmButton = screen.getByRole('button', { name: '削除する' });
+      expect(confirmButton).toBeDisabled();
+
+      const input = screen.getByLabelText('続行するには「削除」と入力してください');
+      await userEvent.type(input, '削');
+      expect(confirmButton).toBeDisabled();
+
+      await userEvent.type(input, '除');
+      expect(confirmButton).toBeEnabled();
+
+      await userEvent.click(confirmButton);
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('入力欄に自動フォーカスする', () => {
+      render(<ConfirmDialog title="t" message="m" requireTypedText="削除" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+      expect(screen.getByLabelText('続行するには「削除」と入力してください')).toHaveFocus();
+    });
+
+    it('一部一致や余分な文字列では確認ボタンが有効化されない', async () => {
+      render(<ConfirmDialog title="t" message="m" requireTypedText="削除" confirmLabel="削除する" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+      const input = screen.getByLabelText('続行するには「削除」と入力してください');
+      await userEvent.type(input, '削除する');
+      expect(screen.getByRole('button', { name: '削除する' })).toBeDisabled();
+    });
+  });
 });

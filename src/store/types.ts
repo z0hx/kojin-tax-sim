@@ -79,6 +79,8 @@ export interface AppStoreActions {
   exportData(opts: ExportOptions): Promise<void>;
   previewImport(file: File, mode: ImportMode, passphrase?: string): Promise<void>;
   commitImport(mode: ImportMode): Promise<void>;
+  /** previewImportで作った差分プレビューを破棄する(ファイル選択のやり直し・キャンセル用)。副作用は無い */
+  cancelImportPreview(): void;
   /** UIのエラーバナーを閉じるためlastErrorをnullに戻す。副作用は無い */
   clearLastError(): void;
   requestPersistence(): Promise<void>;

@@ -4,7 +4,7 @@ import { useNavigation } from '../navigation';
 import { PersonSelector } from './PersonSelector';
 
 /** 共通ヘッダー(02仕様書§5)。年度表示は現状値の表示のみで、切替UIは他Issue(ダッシュボード等)の範囲。
- *  ⚙メニューは将来の画面(データ管理等)向けに汎用の遷移入口として用意し、今は「人物管理」のみを置く。 */
+ *  ⚙メニューは画面遷移の汎用の入口として、人物管理・データ管理を置く。 */
 export function Header() {
   const activeYear = useAppStore((s) => s.activeYear);
   const navigate = useNavigation((s) => s.navigate);
@@ -63,6 +63,17 @@ export function Header() {
               style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
             >
               人物管理
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                navigate('dataManagement');
+              }}
+              style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
+            >
+              データ管理
             </button>
           </div>
         )}
