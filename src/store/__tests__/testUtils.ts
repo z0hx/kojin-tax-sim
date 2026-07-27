@@ -38,6 +38,26 @@ export function stubFetchForTaxParams(overrides: Record<number, 'fail'> = {}): v
   );
 }
 
+/**
+ * navigator.storageのみを差し替える(jsdom環境ではnavigator自体を丸ごとvi.stubGlobalすると
+ * userEvent等が参照する他プロパティが失われるため、useAppStore.test.tsのnavigator全体スタブとは
+ * 別の手法を使う)。
+ */
+export function installStoragePersistMock(persistResult = true): { persist: ReturnType<typeof vi.fn> } {
+  const persist = vi.fn(async () => persistResult);
+  const persisted = vi.fn(async () => false);
+  const estimate = vi.fn(async () => ({ usage: 0, quota: 0 }));
+  Object.defineProperty(window.navigator, 'storage', {
+    value: { persist, persisted, estimate },
+    configurable: true,
+  });
+  return { persist };
+}
+
+export function uninstallStoragePersistMock(): void {
+  Reflect.deleteProperty(window.navigator, 'storage');
+}
+
 export function yokohamaMunicipality(): MunicipalityConfig {
   return {
     name: '横浜市',

@@ -89,6 +89,33 @@ describe('useAppStore', () => {
       expect(s.calculationResult).not.toBeNull();
       expect(s.calculationResult?.furusato.limitAmount).toBe(0); // 収入0なので上限も0
     });
+
+    it('municipalityを渡すとその人物のdefaults.municipalityに反映される(省略時は標準税率)', () => {
+      const id = store.getState().addPerson('本人', '#111111', yokohamaMunicipality());
+      const person = store.getState().appData!.persons.find((p) => p.id === id)!;
+      expect(person.defaults.municipality).toEqual(yokohamaMunicipality());
+    });
+  });
+
+  describe('completeOnboarding(S-12オンボーディング完了)', () => {
+    it('人物を作成し、渡した自治体設定をdefaultsに反映し、appSettings.onboardingCompletedをtrueにする', async () => {
+      const id = await store.getState().completeOnboarding('本人', '#3366cc', yokohamaMunicipality());
+      const s = store.getState();
+      expect(s.activePersonId).toBe(id);
+      expect(s.onboardingRequired).toBe(false);
+      expect(s.appData!.appSettings.onboardingCompleted).toBe(true);
+      const person = s.appData!.persons.find((p) => p.id === id)!;
+      expect(person.defaults.municipality).toEqual(yokohamaMunicipality());
+    });
+
+    it('完了後は即座にIndexedDBへ保存される(デバウンス待ちを挟まなくても再読み込みで復元できる)', async () => {
+      await store.getState().completeOnboarding('本人', '#3366cc', yokohamaMunicipality());
+      // flushNow()を挟まずに直接再読み込みする。completeOnboarding内部でflushNow相当の即時保存が
+      // 行われていなければ、この時点でIndexedDBにはまだ書き込まれておらず読み込み結果が空になる
+      const reloaded = await loadAppData();
+      expect(reloaded?.persons).toHaveLength(1);
+      expect(reloaded?.appSettings.onboardingCompleted).toBe(true);
+    });
   });
 
   describe('update*系のガード(レビュー指摘 Medium是正: YearProfile未作成時にクラッシュしない)', () => {

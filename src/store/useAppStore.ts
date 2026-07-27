@@ -15,7 +15,7 @@ import type { AppError, AppStore, AppStoreState, StoreCalculationResult } from '
 type Set = (partial: Partial<AppStoreState> | ((state: AppStoreState) => Partial<AppStoreState>)) => void;
 type Get = () => AppStore;
 
-const DEFAULT_MUNICIPALITY = {
+export const DEFAULT_MUNICIPALITY = {
   name: '',
   prefectureName: '',
   municipalIncomeRate: 0.06,
@@ -298,7 +298,7 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, municipality: { ...profile.municipality, ...patch } }));
     },
 
-    addPerson(displayName, color) {
+    addPerson(displayName, color, municipality) {
       const state = get();
       const base = state.appData ?? emptyAppData();
       const now = nowIso();
@@ -309,7 +309,7 @@ function createStoreImpl(set: Set, get: Get): AppStore {
         createdAt: now,
         updatedAt: now,
         years: {},
-        defaults: { municipality: { ...DEFAULT_MUNICIPALITY }, safetyRatio: 0.9 },
+        defaults: { municipality: { ...(municipality ?? DEFAULT_MUNICIPALITY) }, safetyRatio: 0.9 },
       };
       const newAppData: AppData = { ...base, persons: [...base.persons, newPerson], activePersonId: newPerson.id };
       set({
@@ -322,6 +322,26 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       saveQueue.schedule(newAppData);
       persistUiSelection(newPerson.id, null);
       return newPerson.id;
+    },
+
+    async completeOnboarding(displayName, color, municipality) {
+      const personId = get().addPerson(displayName, color, municipality);
+      // addPerson後にget()し直す(先に取得したstateを使うとappData.persons追加前のappDataで
+      // appSettingsだけ上書きしてしまい、直前に作った人物を消してしまう)
+      const afterAdd = get();
+      if (afterAdd.appData) {
+        const newAppData: AppData = { ...afterAdd.appData, appSettings: { ...afterAdd.appData.appSettings, onboardingCompleted: true } };
+        set({ appData: newAppData });
+        saveQueue.schedule(newAppData);
+      }
+      // オンボーディング完了は初めての書き込みであり、直後にタブを閉じられるとデバウンス待ちの間に
+      // 「保存されているはず」の説明(S-12ステップ1)に反して消える恐れがあるため即時確定させる
+      try {
+        await saveQueue.flushNow();
+      } catch (e) {
+        set({ lastError: e as AppError });
+      }
+      return personId;
     },
 
     duplicatePerson(personId) {

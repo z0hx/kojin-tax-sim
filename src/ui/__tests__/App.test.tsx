@@ -22,7 +22,13 @@ import { useAppStore, initialState } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { clearAppData } from '../../persistence/repository';
 import { flushNow, resetSaveQueueForTests } from '../../store/saveQueue';
-import { installMemoryLocalStorage, stubFetchForTaxParams, uninstallMemoryLocalStorage } from '../../store/__tests__/testUtils';
+import {
+  installMemoryLocalStorage,
+  installStoragePersistMock,
+  stubFetchForTaxParams,
+  uninstallMemoryLocalStorage,
+  uninstallStoragePersistMock,
+} from '../../store/__tests__/testUtils';
 
 beforeEach(async () => {
   await clearAppData();
@@ -37,6 +43,7 @@ beforeEach(async () => {
 afterEach(() => {
   cleanup();
   uninstallMemoryLocalStorage();
+  uninstallStoragePersistMock();
   vi.unstubAllGlobals();
   resetSaveQueueForTests();
 });
@@ -54,19 +61,63 @@ async function openPersonManagement() {
 }
 
 describe('App(人物プロファイル管理)', () => {
-  it('人物が0件の場合はWelcomeScreenが表示され、作成すると共通ヘッダーが現れる', async () => {
+  it('人物が0件の場合はS-12オンボーディングが表示され、3ステップ完了すると共通ヘッダーが現れる', async () => {
+    const { persist } = installStoragePersistMock();
     await renderAppAndWaitLoaded();
-    expect(screen.getByText('まずは人物を作成してください。', { exact: false })).toBeInTheDocument();
-    // NFR-09: 免責表示はonboarding中の画面でも表示される(レビューで発見: WelcomeScreenに免責が無かった不整合の是正)
-    expect(screen.getByText('税務上の助言ではありません', { exact: false })).toBeInTheDocument();
 
-    const nameInput = screen.getByLabelText('表示名(本名でなくても構いません)');
+    // ステップ1: 保存方式の説明
+    expect(screen.getByRole('heading', { name: 'データの保存方法について' })).toBeInTheDocument();
+    expect(screen.getByText('外部に送信されません', { exact: false })).toBeInTheDocument();
+    // NFR-09: 免責表示はonboarding中の画面でも表示される
+    expect(screen.getByText('税務上の助言ではありません', { exact: false })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }));
+
+    // ステップ2: 人物の作成
+    expect(screen.getByRole('heading', { name: '人物を作成' })).toBeInTheDocument();
+    const nameInput = screen.getByLabelText('表示名');
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, '本人');
-    await userEvent.click(screen.getByRole('button', { name: '作成' }));
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }));
+
+    // ステップ3: 自治体の設定
+    expect(screen.getByRole('heading', { name: '自治体を設定' })).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('都道府県'), '神奈川県');
+    await userEvent.type(screen.getByLabelText('市区町村'), '横浜市');
+    await userEvent.click(screen.getByRole('button', { name: '完了' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: /本人/ })).toBeInTheDocument());
     expect(useAppStore.getState().onboardingRequired).toBe(false);
+    expect(useAppStore.getState().appData!.appSettings.onboardingCompleted).toBe(true);
+    const person = useAppStore.getState().appData!.persons[0];
+    expect(person.defaults.municipality.prefectureName).toBe('神奈川県');
+    expect(person.defaults.municipality.name).toBe('横浜市');
+    await waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+  });
+
+  it('オンボーディングのステップ2で表示名が未入力だと次へ進めない', async () => {
+    installStoragePersistMock();
+    await renderAppAndWaitLoaded();
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }));
+
+    const nameInput = screen.getByLabelText('表示名');
+    await userEvent.clear(nameInput);
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }));
+
+    expect(screen.getByRole('heading', { name: '人物を作成' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('表示名を入力してください');
+  });
+
+  it('オンボーディングのステップ3で戻ると入力済みの表示名が保持される', async () => {
+    installStoragePersistMock();
+    await renderAppAndWaitLoaded();
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }));
+    const nameInput = screen.getByLabelText('表示名');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, '配偶者');
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }));
+
+    await userEvent.click(screen.getByRole('button', { name: '戻る' }));
+    expect(screen.getByLabelText('表示名')).toHaveValue('配偶者');
   });
 
   it('人物管理画面で人物を追加すると一覧に表示され、切り替えても互いのデータが混線しない(T-23相当)', async () => {

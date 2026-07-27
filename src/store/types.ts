@@ -61,13 +61,16 @@ export interface AppStoreActions {
   updateHousingLoan(input: HousingLoanInput | null): void;
   updateFurusatoInput(patch: Partial<FurusatoInput>): void;
   updateMunicipality(patch: Partial<MunicipalityConfig>): void;
-  /** 新規人物を追加し、その人物に切り替える。戻り値は新規人物のid */
-  addPerson(displayName: string, color: string): string;
+  /** 新規人物を追加し、その人物に切り替える。municipalityを省略した場合は標準税率(既定値)を使う。戻り値は新規人物のid */
+  addPerson(displayName: string, color: string, municipality?: MunicipalityConfig): string;
   renamePerson(personId: string, displayName: string): void;
   setPersonColor(personId: string, color: string): void;
   /** 人物を複製する(新しいidで年度データを含めて複製)。activePersonIdは変更しない。戻り値は複製先のid */
   duplicatePerson(personId: string): string;
   deletePerson(personId: string): void;
+  /** S-12オンボーディング完了処理。人物を作成(自治体の既定値込み)し、appSettings.onboardingCompletedをtrueにして
+   *  即時保存する(初回の書き込みのためデバウンスに任せない)。戻り値は新規人物のid */
+  completeOnboarding(displayName: string, color: string, municipality: MunicipalityConfig): Promise<string>;
   /** 削除前にその人物単体のデータを非暗号化でエクスポート・ダウンロードさせ、成功した場合のみ削除する。
    *  エクスポートが失敗・キャンセルされた場合は削除せずlastErrorをセットして終了する(S-10要件)。 */
   deletePersonWithBackup(personId: string): Promise<void>;
