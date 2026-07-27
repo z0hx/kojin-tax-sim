@@ -5,7 +5,7 @@ import { create } from 'zustand';
  * 今後の画面Issue(S-01〜S-09, S-11等)が実装される際は、このUnionに画面IDを追加していく想定。
  * URL共有の要件はないため履歴スタックは持たない。
  */
-export type ScreenId = 'main' | 'personManagement' | 'dataManagement' | 'income' | 'deductions' | 'housingLoan' | 'calculationDetail';
+export type ScreenId = 'main' | 'personManagement' | 'dataManagement' | 'income' | 'deductions' | 'housingLoan' | 'calculationDetail' | 'simulation';
 
 interface NavigationState {
   screen: ScreenId;
