@@ -25,12 +25,17 @@ export function setSavingListener(cb: ((saving: boolean) => void) | undefined): 
   onSavingChange = cb;
 }
 
-/** 500msデバウンス。連続呼び出しではタイマーを再設定する。lockedの間はタイマーを設定しない(永続化のみスキップ)。 */
+/**
+ * 500msデバウンス。連続呼び出しではタイマーを再設定する。
+ * lockedの間は何もしない(lastScheduledDataの更新も含めて完全にスキップする)。withLockのコールバックが
+ * recordSaved()でlastScheduledDataを確定させた後、ロック中に発行された無関係なschedule()がそれを
+ * 上書きしてしまう残存レースを防ぐ(レビューで指摘: 破壊的操作の実行中は永続化を一切試みない設計とする)。
+ */
 export function schedule(data: AppData): void {
+  if (locked) return;
   lastScheduledData = data;
   if (timer) clearTimeout(timer);
   timer = null;
-  if (locked) return;
   timer = setTimeout(() => {
     timer = null;
     void run(() => saveAppData(data));

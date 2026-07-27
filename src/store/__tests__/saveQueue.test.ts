@@ -154,6 +154,21 @@ describe('saveQueue', () => {
     expect(saveAppDataMock).toHaveBeenCalledWith(dataWith(0)); // dataWith(1)は保存されていない
   });
 
+  it('ロック中のschedule()はlastScheduledDataも更新しない(recordSavedで確定させた値を上書きしない)', async () => {
+    // withLockのコールバック内でrecordSaved(正しいdata)を確定させた後、ロック中に無関係な
+    // schedule()が発行されても、それがlastScheduledDataを古いデータで上書きしないことを確認する
+    // (レビューで指摘された残存Medium相当のレース是正)。
+    const lockPromise = withLock(async () => {
+      recordSaved(dataWith(0)); // 削除/インポート後の正しい状態
+      schedule(dataWith(9)); // ロック中に他のupdate*がschedule()してしまうケースを模擬
+    });
+    await lockPromise;
+
+    await flushNow(); // ロック解除後のflushNowは、recordSavedで確定させた値を使うべき
+    expect(saveAppDataMock).toHaveBeenCalledTimes(1);
+    expect(saveAppDataMock).toHaveBeenCalledWith(dataWith(0));
+  });
+
   it('isSavingの変化がsetSavingListener経由でtrue→falseの順に通知される', async () => {
     const states: boolean[] = [];
     setSavingListener((s) => states.push(s));
