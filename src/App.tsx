@@ -8,6 +8,7 @@ import { PersonManagementScreen } from './ui/screens/PersonManagementScreen';
 import { DataManagementScreen } from './ui/screens/DataManagementScreen';
 import { IncomeScreen } from './ui/screens/IncomeScreen';
 import { DeductionsScreen } from './ui/screens/DeductionsScreen';
+import { HousingLoanScreen } from './ui/screens/HousingLoanScreen';
 
 export default function App() {
   const isLoading = useAppStore((s) => s.isLoading);
@@ -39,6 +40,8 @@ export default function App() {
         <IncomeScreen />
       ) : screen === 'deductions' ? (
         <DeductionsScreen />
+      ) : screen === 'housingLoan' ? (
+        <HousingLoanScreen />
       ) : (
         <main style={{ maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
           <p>計算エンジンと永続化層、人物プロファイル管理の実装が完了しています。ダッシュボード等の他の画面は今後のフェーズで実装予定です。</p>
@@ -48,6 +51,9 @@ export default function App() {
             </button>
             <button type="button" onClick={() => useNavigation.getState().navigate('deductions')}>
               控除入力へ
+            </button>
+            <button type="button" onClick={() => useNavigation.getState().navigate('housingLoan')}>
+              住宅ローン控除へ
             </button>
           </div>
         </main>

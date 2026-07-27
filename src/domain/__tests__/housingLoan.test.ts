@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyToIncomeTax, applyToResidentTax, calcCreditAvailable, calcResidentTaxCap } from '../housingLoan';
+import { applyToIncomeTax, applyToResidentTax, calcCreditAvailable, calcResidentTaxCap, calcResidentTaxCapDetail } from '../housingLoan';
 import type { HousingLoanInput, Yen } from '../types';
 import { TAX_PARAMS_2026 } from './testHelpers';
 
@@ -59,6 +59,33 @@ describe('calcResidentTaxCap', () => {
   });
   it('住宅ローン入力がない場合は0円', () => {
     expect(calcResidentTaxCap(2_352_000 as Yen, undefined, TAX_PARAMS_2026.residentTax.housingLoanCapRules)).toBe(0);
+  });
+});
+
+describe('calcResidentTaxCapDetail(Issue #8: S-04画面の上限内訳表示用)', () => {
+  it('比率ベースの額が定額上限より小さい場合、appliedは比率ベースの額になる', () => {
+    const detail = calcResidentTaxCapDetail(1_000_000 as Yen, 'rule5pct97500', TAX_PARAMS_2026.residentTax.housingLoanCapRules);
+    expect(detail).toEqual({ ratioBased: 50_000, fixed: 97_500, applied: 50_000, ratio: 0.05 });
+  });
+  it('比率ベースの額が定額上限を超える場合、appliedは定額上限になる', () => {
+    const detail = calcResidentTaxCapDetail(2_352_000 as Yen, 'rule5pct97500', TAX_PARAMS_2026.residentTax.housingLoanCapRules);
+    expect(detail).toEqual({ ratioBased: 117_600, fixed: 97_500, applied: 97_500, ratio: 0.05 });
+  });
+  it('rule7pct136500の場合、ratioは0.07になる', () => {
+    const detail = calcResidentTaxCapDetail(3_000_000 as Yen, 'rule7pct136500', TAX_PARAMS_2026.residentTax.housingLoanCapRules);
+    expect(detail).toEqual({ ratioBased: 210_000, fixed: 136_500, applied: 136_500, ratio: 0.07 });
+  });
+  it('ruleが無い場合はすべて0', () => {
+    expect(calcResidentTaxCapDetail(2_352_000 as Yen, undefined, TAX_PARAMS_2026.residentTax.housingLoanCapRules)).toEqual({
+      ratioBased: 0,
+      fixed: 0,
+      applied: 0,
+      ratio: 0,
+    });
+  });
+  it('calcResidentTaxCapはcalcResidentTaxCapDetail().appliedと一致する(リファクタの後方互換性)', () => {
+    const detail = calcResidentTaxCapDetail(2_352_000 as Yen, 'rule5pct97500', TAX_PARAMS_2026.residentTax.housingLoanCapRules);
+    expect(calcResidentTaxCap(2_352_000 as Yen, 'rule5pct97500', TAX_PARAMS_2026.residentTax.housingLoanCapRules)).toBe(detail.applied);
   });
 });
 

@@ -80,6 +80,17 @@ export function Header() {
               role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
+                navigate('housingLoan');
+              }}
+              style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
+            >
+              住宅ローン控除
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
                 navigate('personManagement');
               }}
               style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
