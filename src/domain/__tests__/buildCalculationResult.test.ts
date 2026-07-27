@@ -39,4 +39,18 @@ describe('buildCalculationResult', () => {
     expect(result.furusato.limitAmount).toBe(0);
     expect(result.warnings.map((w) => w.id)).toContain('W-05');
   });
+
+  it('confidenceRatio(実績月数/12)を戻り値に含む(S-02収入入力画面向け)', () => {
+    const actualSix = monthlyAllYear(400_000, 60_000)
+      .slice(0, 6)
+      .map((m) => ({ ...m, status: 'actual' as const }));
+    const estimatedSix = monthlyAllYear(0, 0)
+      .slice(6)
+      .map((m) => ({ ...m, status: 'estimated' as const }));
+    const profile = makeProfile({
+      income: { monthly: [...actualSix, ...estimatedSix], bonuses: [], leavePeriods: [], otherSalaryIncome: 0 },
+    });
+    const result = buildCalculationResult(profile, TAX_PARAMS_2026);
+    expect(result.confidenceRatio).toBe(0.5);
+  });
 });

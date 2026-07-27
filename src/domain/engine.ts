@@ -219,7 +219,10 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
 }
 
 /** CalculationResult全体を組み立てる。standard/conservative両モードのfindFurusatoLimitを実行する */
-export function buildCalculationResult(profile: YearProfile, params: TaxParams): CalculationResult & { furusatoConservative: CalculationResult['furusato'] } {
+export function buildCalculationResult(
+  profile: YearProfile,
+  params: TaxParams
+): CalculationResult & { furusatoConservative: CalculationResult['furusato']; confidenceRatio: number } {
   const mode: FurusatoCapMode = 'standard';
   const limitStandard = findFurusatoLimit(profile, params, 'standard');
   const limitConservative = findFurusatoLimit(profile, params, 'conservative');
@@ -262,5 +265,10 @@ export function buildCalculationResult(profile: YearProfile, params: TaxParams):
     trace: snapshotAtDonated.trace,
   };
 
-  return { ...result, furusatoConservative: { ...result.furusato, limitAmount: limitConservative.limit, recommendedAmount: limitConservative.recommended } };
+  return {
+    ...result,
+    furusatoConservative: { ...result.furusato, limitAmount: limitConservative.limit, recommendedAmount: limitConservative.recommended },
+    // 収入見込みの確定率(実績月数/12)。S-02収入入力画面で表示するために公開する(FR-03/W-06と同じ値)
+    confidenceRatio: incomeEstimate.confidenceRatio,
+  };
 }
