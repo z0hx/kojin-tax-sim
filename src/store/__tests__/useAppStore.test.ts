@@ -436,6 +436,17 @@ describe('useAppStore', () => {
       expect(store.getState().lastError?.message).toContain('キャンセル');
       expect(store.getState().appData!.appSettings.lastExportedAt).toBeNull();
     });
+
+    it('存在しないidだけを渡した場合は0件扱いとしてエクスポートせずlastErrorをセットする(レビューで発見: UI側のstale id対策の保険)', async () => {
+      store.getState().addPerson('本人', '#111111');
+      await flushNow();
+
+      await store.getState().exportData({ personIds: ['no-such-person-id'], includeSettings: true });
+
+      expect(saveBlobMock).not.toHaveBeenCalled();
+      expect(store.getState().lastError).not.toBeNull();
+      expect(store.getState().appData!.appSettings.lastExportedAt).toBeNull();
+    });
   });
 
   describe('setCapMode', () => {

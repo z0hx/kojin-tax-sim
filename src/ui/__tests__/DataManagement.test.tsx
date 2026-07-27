@@ -18,7 +18,7 @@ vi.mock('../../persistence/exporter', async (importOriginal) => {
 import App from '../../App';
 import { useAppStore, initialState } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
-import { clearAppData } from '../../persistence/repository';
+import { clearAppData, saveAppData } from '../../persistence/repository';
 import { flushNow, resetSaveQueueForTests } from '../../store/saveQueue';
 import { CURRENT_SCHEMA_VERSION } from '../../persistence/migration';
 import { emptyAppData, type AppData } from '../../persistence/types';
@@ -137,6 +137,45 @@ describe('DataManagementScreen(S-09)', () => {
       expect(within(main).getByRole('button', { name: 'エクスポート' })).toBeEnabled();
     });
 
+    it('置換インポート後は選択が新しい人物構成に合わせて無効化され、無警告の0件エクスポートが起きない(レビューで発見の回帰テスト)', async () => {
+      useAppStore.getState().addPerson('本人', '#111111');
+      await flushNow();
+      installStoragePersistMock();
+      await renderAppAndWaitLoaded();
+      const main = await openDataManagement();
+
+      const incoming: AppData = {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        persons: [
+          {
+            id: 'replaced-1',
+            displayName: '置換後太郎',
+            color: '#abcdef',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            years: {},
+            defaults: { municipality: yokohamaMunicipality(), safetyRatio: 0.9 },
+          },
+        ],
+        activePersonId: null,
+        appSettings: emptyAppData().appSettings,
+      };
+
+      await userEvent.upload(within(main).getByLabelText('ファイルを選択'), makeAppDataFile(incoming));
+      await userEvent.click(within(main).getByLabelText(/置換 —/));
+      await userEvent.click(within(main).getByRole('button', { name: 'プレビュー' }));
+      await waitFor(() => expect(within(main).getByRole('button', { name: 'インポートを実行' })).toBeInTheDocument());
+      await userEvent.click(within(main).getByRole('button', { name: 'インポートを実行' }));
+
+      await waitFor(() => expect(within(main).getByRole('checkbox', { name: '置換後太郎' })).toBeInTheDocument());
+
+      // 元の「本人」を選択していた古いidはもう存在しないため対象人物選択は空扱いになり、エクスポートは無効化される
+      expect(within(main).getByRole('button', { name: 'エクスポート' })).toBeDisabled();
+      expect(within(main).getByText('エクスポート対象の人物を1人以上選択してください。')).toBeInTheDocument();
+      // 置換前の自動バックアップの1回のみで、誤った0件エクスポートは行われていない
+      expect(saveBlobMock).toHaveBeenCalledTimes(1);
+    });
+
     it('個別選択時はファイル名に選択した人物の表示名が使われる(UUIDが露出しない)', async () => {
       const idA = useAppStore.getState().addPerson('本人', '#111111');
       useAppStore.getState().addPerson('配偶者', '#222222');
@@ -152,6 +191,55 @@ describe('DataManagementScreen(S-09)', () => {
       const filename = saveBlobMock.mock.calls[0][1] as string;
       expect(filename).toContain('本人');
       expect(filename).not.toContain(idA);
+    });
+  });
+
+  describe('バックアップ督促(FR-28)', () => {
+    it('一度もエクスポートしていない場合は警告を表示する', async () => {
+      useAppStore.getState().addPerson('本人', '#111111');
+      await flushNow();
+      installStoragePersistMock();
+      await renderAppAndWaitLoaded();
+      const main = await openDataManagement();
+
+      expect(within(main).getByText(/まだエクスポートしていません/)).toBeInTheDocument();
+      expect(within(main).getByText('⚠ バックアップをおすすめします')).toBeInTheDocument();
+    });
+
+    it('最終エクスポートから30日未満なら警告を表示しない', async () => {
+      useAppStore.getState().addPerson('本人', '#111111');
+      await flushNow();
+      const current = useAppStore.getState().appData!;
+      await saveAppData({
+        ...current,
+        appSettings: { ...current.appSettings, lastExportedAt: new Date(Date.now() - 5 * 86_400_000).toISOString() },
+      });
+      useAppStore.setState(initialState());
+
+      installStoragePersistMock();
+      await renderAppAndWaitLoaded();
+      const main = await openDataManagement();
+
+      expect(within(main).getByText(/5日前/)).toBeInTheDocument();
+      expect(within(main).queryByText('⚠ バックアップをおすすめします')).not.toBeInTheDocument();
+    });
+
+    it('最終エクスポートから30日以上経過していると警告を表示する', async () => {
+      useAppStore.getState().addPerson('本人', '#111111');
+      await flushNow();
+      const current = useAppStore.getState().appData!;
+      await saveAppData({
+        ...current,
+        appSettings: { ...current.appSettings, lastExportedAt: new Date(Date.now() - 31 * 86_400_000).toISOString() },
+      });
+      useAppStore.setState(initialState());
+
+      installStoragePersistMock();
+      await renderAppAndWaitLoaded();
+      const main = await openDataManagement();
+
+      expect(within(main).getByText(/31日前/)).toBeInTheDocument();
+      expect(within(main).getByText('⚠ バックアップをおすすめします')).toBeInTheDocument();
     });
   });
 
@@ -234,6 +322,30 @@ describe('DataManagementScreen(S-09)', () => {
 
       await waitFor(() => expect(saveBlobMock).toHaveBeenCalledTimes(1));
       expect(useAppStore.getState().appData!.persons.map((p) => p.displayName)).toContain('インポート太郎');
+    });
+
+    it('マージで更新される人物には変更年度が併記される(S-09ワイヤーフレームの「└ 2026年分」相当)', async () => {
+      const idA = useAppStore.getState().addPerson('本人', '#111111');
+      await useAppStore.getState().createBlankYear(2026);
+      await flushNow();
+
+      const existing = useAppStore.getState().appData!.persons.find((p) => p.id === idA)!;
+      const incoming: AppData = {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        persons: [{ ...structuredClone(existing), updatedAt: new Date(Date.now() + 60_000).toISOString() }],
+        activePersonId: null,
+        appSettings: emptyAppData().appSettings,
+      };
+
+      installStoragePersistMock();
+      await renderAppAndWaitLoaded();
+      const main = await openDataManagement();
+
+      await userEvent.upload(within(main).getByLabelText('ファイルを選択'), makeAppDataFile(incoming));
+      await userEvent.click(within(main).getByRole('button', { name: 'プレビュー' }));
+
+      await waitFor(() => expect(within(main).getByText(/更新される人物 1件/)).toBeInTheDocument());
+      expect(within(main).getByText(/本人\(2026年分\)/)).toBeInTheDocument();
     });
 
     it('不正なファイルを選択するとエラーバナーが表示される', async () => {

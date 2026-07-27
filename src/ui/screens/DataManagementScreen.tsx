@@ -1,8 +1,8 @@
-import { useEffect, useState, type ChangeEvent, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import type { ImportMode } from '../../persistence/importer';
+import type { ImportMode, ImportPreviewEntry } from '../../persistence/importer';
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -41,6 +41,17 @@ function persistenceStatusLabel(state: 'unsupported' | 'granted' | 'denied' | 'u
 
 function describeEntries(entries: { displayName: string }[]): string {
   return entries.length > 0 ? `(${entries.map((e) => e.displayName).join('、')})` : '';
+}
+
+/** 更新される人物は、どの年度が変わるのか(changedYears)も併記する(02仕様書§5 S-09ワイヤーフレームの
+ *  「└ 2026年分: エクスポート側が新しい」相当の情報開示) */
+function describeUpdatedEntries(entries: ImportPreviewEntry[]): string {
+  if (entries.length === 0) return '';
+  const parts = entries.map((e) => {
+    const years = e.changedYears && e.changedYears.length > 0 ? e.changedYears.map((y) => `${y}年分`).join('・') : '変更年度なし';
+    return `${e.displayName}(${years})`;
+  });
+  return `(${parts.join('、')})`;
 }
 
 const muted: CSSProperties = { color: 'var(--color-muted)', fontSize: '0.85rem' };
@@ -97,15 +108,25 @@ export function DataManagementScreen() {
     });
   }
 
-  const noSelection = selectedIds.size === 0;
+  // 置換インポート等でpersonsの顔ぶれが入れ替わった場合、selectedIdsに既に存在しない人物のidが
+  // 残ったままになりうる。UI表示(noSelection)・実際に送る対象の両方でここを経由させ、
+  // 「チェックが全部外れているのに実は古いidが残っていて0件エクスポートが成功してしまう」事故を防ぐ
+  // (レビューで発見)。store側exportDataでも同様のフィルタを二重に持たせている。
+  const validSelectedIds = useMemo(
+    () => new Set(Array.from(selectedIds).filter((id) => persons.some((p) => p.id === id))),
+    [selectedIds, persons]
+  );
+
+  const noSelection = validSelectedIds.size === 0;
   const passphraseMissing = useEncryption && passphrase.trim().length === 0;
 
   async function handleExport() {
     if (noSelection || passphraseMissing) return;
     setExportBusy(true);
-    const personIds = selectedIds.size === persons.length ? 'all' : Array.from(selectedIds);
+    const personIds = validSelectedIds.size === persons.length ? 'all' : Array.from(validSelectedIds);
     await exportData({ personIds, passphrase: useEncryption ? passphrase.trim() : undefined, includeSettings: true });
     setExportBusy(false);
+    if (!useAppStore.getState().lastError) setPassphrase('');
   }
 
   const lastExportedAt = appData?.appSettings.lastExportedAt ?? null;
@@ -113,6 +134,7 @@ export function DataManagementScreen() {
   const backupOverdue = daysSinceExport === null || daysSinceExport >= 30;
 
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importFileInputKey, setImportFileInputKey] = useState(0);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
   const [importPassphrase, setImportPassphrase] = useState('');
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -141,7 +163,14 @@ export function DataManagementScreen() {
       setImportSuccess(true);
       setImportFile(null);
       setImportPassphrase('');
+      setImportFileInputKey((k) => k + 1); // ファイル選択欄の表示上のファイル名もリセットする
     }
+  }
+
+  function handleCancelPreview() {
+    cancelImportPreview();
+    setImportFile(null);
+    setImportFileInputKey((k) => k + 1);
   }
 
   const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false);
@@ -187,6 +216,9 @@ export function DataManagementScreen() {
         )}
         {persistenceState === 'unsupported' && <p style={muted}>このブラウザは永続化許可のAPIに対応していません。</p>}
         <p style={muted}>⚠ ブラウザの閲覧データを削除すると、保存されているデータは失われます。</p>
+        <p style={muted}>
+          人物の切替はアクセス制御ではありません。同じブラウザを使える人は誰でも全人物のデータを閲覧できます。IndexedDB上のデータも暗号化されず平文で保存されます。共有端末では利用後に全データ削除を行うか、暗号化エクスポートで持ち出すことをおすすめします。
+        </p>
       </section>
 
       <section style={sectionStyle}>
@@ -195,7 +227,7 @@ export function DataManagementScreen() {
           <legend style={{ padding: 0, marginBottom: '0.4rem' }}>対象の人物</legend>
           {persons.map((person) => (
             <label key={person.id} style={{ display: 'block' }}>
-              <input type="checkbox" checked={selectedIds.has(person.id)} onChange={() => togglePerson(person.id)} /> {person.displayName}
+              <input type="checkbox" checked={validSelectedIds.has(person.id)} onChange={() => togglePerson(person.id)} /> {person.displayName}
             </label>
           ))}
         </fieldset>
@@ -224,12 +256,12 @@ export function DataManagementScreen() {
                 パスフレーズを入力してください。
               </p>
             )}
-            <p style={muted}>パスフレーズを忘れると復号できません。復元手段はありません。</p>
+            <p style={muted}>
+              パスフレーズを忘れると復号できません。復元手段はありません。また暗号化は意図的な解析への防御ではなく、ファイル紛失時の緩和策に過ぎません。
+            </p>
           </>
         ) : (
-          <p role="alert" style={warning}>
-            所得情報を含む平文ファイルです。取り扱いにご注意ください。
-          </p>
+          <p style={warning}>所得情報を含む平文ファイルです。取り扱いにご注意ください。</p>
         )}
 
         <p style={{ marginTop: '0.75rem' }}>
@@ -247,6 +279,7 @@ export function DataManagementScreen() {
         <label style={{ display: 'block' }}>
           ファイルを選択
           <input
+            key={importFileInputKey}
             type="file"
             accept=".json,.taxsim.enc,application/json,application/octet-stream"
             onChange={handleFileChange}
@@ -293,16 +326,14 @@ export function DataManagementScreen() {
             <p>スキーマ: v{importPreview.schemaVersion}({importPreview.migrationApplied ? '移行を適用しました' : '移行不要'})</p>
             <ul>
               <li>{`追加される人物 ${importPreview.added.length}件 ${describeEntries(importPreview.added)}`.trim()}</li>
-              <li>{`更新される人物 ${importPreview.updated.length}件 ${describeEntries(importPreview.updated)}`.trim()}</li>
+              <li>{`更新される人物 ${importPreview.updated.length}件 ${describeUpdatedEntries(importPreview.updated)}`.trim()}</li>
               <li>{`削除される人物 ${importPreview.removed.length}件 ${describeEntries(importPreview.removed)}`.trim()}</li>
             </ul>
             {importMode === 'replace' && (
-              <p role="alert" style={warning}>
-                置換を実行すると、まず現在のデータを自動的にバックアップとしてダウンロードしてから置き換えます。
-              </p>
+              <p style={warning}>置換を実行すると、まず現在のデータを自動的にバックアップとしてダウンロードしてから置き換えます。</p>
             )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="button" onClick={cancelImportPreview} disabled={commitBusy}>
+              <button type="button" onClick={handleCancelPreview} disabled={commitBusy}>
                 キャンセル
               </button>
               <button type="button" onClick={handleCommitImport} disabled={commitBusy}>

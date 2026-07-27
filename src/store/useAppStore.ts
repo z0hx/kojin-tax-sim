@@ -511,7 +511,13 @@ function createStoreImpl(set: Set, get: Get): AppStore {
     async exportData(opts) {
       const state = get();
       if (!state.appData) return;
-      if (opts.personIds !== 'all' && opts.personIds.length === 0) {
+      // 呼び出し側(UI)が保持しているpersonIdsは、置換インポート等でpersonsが入れ替わった後も
+      // 古いidを含んだままになりうる。実在するidだけに絞り込んでから空かどうかを判定する
+      // (レビューで発見: UI側のstale idチェック漏れにより0件の「成功したエクスポート」が
+      //  作られてしまう不具合があったため、store側でも防御する)
+      const resolvedPersonIds: string[] | 'all' =
+        opts.personIds === 'all' ? 'all' : opts.personIds.filter((id) => state.appData!.persons.some((p) => p.id === id));
+      if (resolvedPersonIds !== 'all' && resolvedPersonIds.length === 0) {
         set({
           lastError: new ValidationError([
             { field: 'personIds', rule: 'nonEmpty', message: 'エクスポート対象の人物を1人以上選択してください' },
@@ -520,8 +526,8 @@ function createStoreImpl(set: Set, get: Get): AppStore {
         return;
       }
       try {
-        const blob = await exportDataFile(state.appData, opts);
-        const target = buildExportTargetLabel(state.appData.persons, opts.personIds);
+        const blob = await exportDataFile(state.appData, { ...opts, personIds: resolvedPersonIds });
+        const target = buildExportTargetLabel(state.appData.persons, resolvedPersonIds);
         const filename = buildFileName(target, Boolean(opts.passphrase));
         await saveBlob(blob, filename);
         const newAppData = { ...state.appData, appSettings: { ...state.appData.appSettings, lastExportedAt: nowIso() } };
