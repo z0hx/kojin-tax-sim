@@ -246,13 +246,123 @@ describe('useAppStore', () => {
       expect(s.activePersonId).not.toBe(idA);
     });
 
-    it('全員削除するとactivePersonId/activeYearがnullになる', () => {
+    it('全員削除するとactivePersonId/activeYearがnullになりonboardingRequiredがtrueになる', () => {
       const idA = store.getState().addPerson('本人', '#111111');
       store.getState().deletePerson(idA);
       const s = store.getState();
       expect(s.activePersonId).toBeNull();
       expect(s.activeYear).toBeNull();
       expect(s.calculationResult).toBeNull();
+      expect(s.onboardingRequired).toBe(true);
+    });
+
+    it('人物が残っている場合はonboardingRequiredはfalseのまま', () => {
+      store.getState().addPerson('本人', '#111111');
+      const idB = store.getState().addPerson('配偶者', '#222222');
+      store.getState().deletePerson(idB);
+      expect(store.getState().onboardingRequired).toBe(false);
+    });
+  });
+
+  describe('duplicatePerson', () => {
+    it('年度データを含めて複製し、activePersonIdは変更しない', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateIncome({ otherSalaryIncome: 1_000_000 });
+
+      const cloneId = store.getState().duplicatePerson(idA);
+      const s = store.getState();
+      expect(cloneId).not.toBe(idA);
+      expect(s.activePersonId).toBe(idA); // 切り替わらない
+      const clone = s.appData!.persons.find((p) => p.id === cloneId)!;
+      expect(clone.displayName).toBe('本人');
+      expect(clone.years[2026]?.income.otherSalaryIncome).toBe(1_000_000);
+      expect(s.appData!.persons).toHaveLength(2);
+    });
+
+    it('複製後に元の人物を変更しても複製先の値は変わらない(T-23相当・イミュータブル)', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      const cloneId = store.getState().duplicatePerson(idA);
+
+      store.getState().updateIncome({ otherSalaryIncome: 9_999_999 });
+
+      const s = store.getState();
+      const clone = s.appData!.persons.find((p) => p.id === cloneId)!;
+      expect(clone.years[2026]?.income.otherSalaryIncome).toBe(0);
+    });
+  });
+
+  describe('deletePersonWithBackup', () => {
+    it('バックアップに成功した場合のみ削除し、単一人物分をエクスポートする', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      const idB = store.getState().addPerson('配偶者', '#222222');
+      await store.getState().setActivePerson(idA);
+
+      await store.getState().deletePersonWithBackup(idA);
+
+      const s = store.getState();
+      expect(s.appData!.persons.map((p) => p.id)).toEqual([idB]);
+      expect(s.appData!.persons.find((p) => p.id === idA)).toBeUndefined();
+      expect(saveBlobMock).toHaveBeenCalledTimes(1);
+      expect(s.lastError).toBeNull();
+
+      const persisted = await loadAppData();
+      expect(persisted?.persons.map((p) => p.id)).toEqual([idB]);
+    });
+
+    it('最後の1人を削除するとonboardingRequiredがtrueになる', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      await store.getState().deletePersonWithBackup(idA);
+      const s = store.getState();
+      expect(s.onboardingRequired).toBe(true);
+      expect(s.appData!.persons).toEqual([]);
+    });
+
+    it('バックアップに失敗した場合は削除せずlastErrorをセットする', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      saveBlobMock.mockRejectedValueOnce(new Error('disk full'));
+
+      await store.getState().deletePersonWithBackup(idA);
+
+      const s = store.getState();
+      expect(s.appData!.persons.map((p) => p.id)).toEqual([idA]);
+      expect(s.lastError).not.toBeNull();
+    });
+
+    it('保存ダイアログのキャンセル(AbortError)でも削除せず、その旨のメッセージをセットする', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      const abortError = new DOMException('The user aborted a request.', 'AbortError');
+      saveBlobMock.mockRejectedValueOnce(abortError);
+
+      await store.getState().deletePersonWithBackup(idA);
+
+      const s = store.getState();
+      expect(s.appData!.persons.map((p) => p.id)).toEqual([idA]);
+      expect(s.lastError?.message).toContain('キャンセル');
+    });
+
+    it('バックアップ待機中に他の変更が入っても、その変更を上書きせずに削除する(レビューで発見: lost update是正)', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      const idB = store.getState().addPerson('配偶者', '#222222');
+
+      let resolveBackup!: () => void;
+      const backupPromise = new Promise<void>((resolve) => {
+        resolveBackup = resolve;
+      });
+      saveBlobMock.mockImplementationOnce(() => backupPromise);
+
+      const deletion = store.getState().deletePersonWithBackup(idA);
+      // deletePersonWithBackupがsaveBlobの完了を待っている間に、別の人物への変更を割り込ませる
+      store.getState().renamePerson(idB, '配偶者リネーム');
+
+      resolveBackup();
+      await deletion;
+
+      const s = store.getState();
+      expect(s.appData!.persons.map((p) => p.id)).toEqual([idB]);
+      expect(s.appData!.persons.find((p) => p.id === idB)?.displayName).toBe('配偶者リネーム');
     });
   });
 

@@ -9,11 +9,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['src/persistence/__tests__/setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/domain/**', 'src/persistence/**', 'src/store/**'],
+      include: ['src/domain/**', 'src/persistence/**', 'src/store/**', 'src/ui/**'],
     },
   },
 });

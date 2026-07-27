@@ -1,0 +1,39 @@
+/* 02仕様書 §1.4.6: 金額の桁を揃えるため等幅数字を優先するフォント指定。
+   セルフホストフォントの導入(Google Fonts等)は本Issueの範囲外のため、system-uiへのフォールバックのみ用意する。 */
+:root {
+  --font-sans: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
+  --font-numeric: 'Inter', system-ui, sans-serif;
+  --color-bg: #ffffff;
+  --color-fg: #1a1a1a;
+  --color-border: #d0d0d0;
+  --color-muted: #666666;
+  --color-danger: #c0392b;
+  --color-danger-bg: #fdecea;
+  --color-selected-bg: #e8f0fe;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1a1a1a;
+    --color-fg: #f0f0f0;
+    --color-border: #444444;
+    --color-muted: #aaaaaa;
+    --color-danger: #ff6b6b;
+    --color-danger-bg: #3a1f1f;
+    --color-selected-bg: #26344d;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+/* 金額表示は等幅数字にし、桁が揃うようにする(S-05計算明細等で使用) */
+.amount {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
