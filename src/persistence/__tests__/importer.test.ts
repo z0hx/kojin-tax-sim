@@ -136,6 +136,29 @@ describe('buildImportPreview', () => {
     const preview = buildImportPreview(current, { data: incomingData, originalSchemaVersion: 0 }, 'merge', 'old.json');
     expect(preview.migrationApplied).toBe(true);
   });
+
+  it('changedYearsは内容が実際に異なる年度のみを返す(内容が同一の年度は「変更あり」に含めない、レビューで発見の是正)', () => {
+    const year2025 = { year: 2025, note: 'unchanged' } as unknown as Record<string, unknown>;
+    const currentPerson = makePerson('p1', '本人', '2026-01-01T00:00:00.000Z');
+    currentPerson.years = {
+      2025: year2025,
+      2026: { year: 2026, note: 'old' } as unknown as Record<string, unknown>,
+    } as unknown as typeof currentPerson.years;
+
+    const incomingPerson = makePerson('p1', '本人', '2026-06-01T00:00:00.000Z');
+    incomingPerson.years = {
+      2025: year2025, // 内容は完全に同一 → 変更年度に含めない
+      2026: { year: 2026, note: 'new' } as unknown as Record<string, unknown>, // 内容が異なる → 含める
+      2027: { year: 2027, note: 'brandNew' } as unknown as Record<string, unknown>, // 既存に無い新規年度 → 含める
+    } as unknown as typeof incomingPerson.years;
+
+    const current: AppData = { ...emptyAppData(), persons: [currentPerson] };
+    const incomingData: AppData = { ...emptyAppData(), persons: [incomingPerson] };
+
+    const preview = buildImportPreview(current, { data: incomingData, originalSchemaVersion: 1 }, 'merge', 'test.json');
+    expect(preview.updated).toHaveLength(1);
+    expect(preview.updated[0].changedYears).toEqual([2026, 2027]);
+  });
 });
 
 describe('buildExportPayload', () => {

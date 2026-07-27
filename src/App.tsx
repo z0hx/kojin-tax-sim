@@ -5,6 +5,7 @@ import { Header } from './ui/components/Header';
 import { Disclaimer } from './ui/components/Disclaimer';
 import { OnboardingScreen } from './ui/screens/OnboardingScreen';
 import { PersonManagementScreen } from './ui/screens/PersonManagementScreen';
+import { DataManagementScreen } from './ui/screens/DataManagementScreen';
 
 export default function App() {
   const isLoading = useAppStore((s) => s.isLoading);
@@ -30,6 +31,8 @@ export default function App() {
       <Header />
       {screen === 'personManagement' ? (
         <PersonManagementScreen />
+      ) : screen === 'dataManagement' ? (
+        <DataManagementScreen />
       ) : (
         <main style={{ maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
           <p>計算エンジンと永続化層、人物プロファイル管理の実装が完了しています。他の画面は今後のフェーズで実装予定です。</p>
