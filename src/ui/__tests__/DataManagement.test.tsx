@@ -330,9 +330,12 @@ describe('DataManagementScreen(S-09)', () => {
       await flushNow();
 
       const existing = useAppStore.getState().appData!.persons.find((p) => p.id === idA)!;
+      const changedPerson = structuredClone(existing);
+      changedPerson.updatedAt = new Date(Date.now() + 60_000).toISOString();
+      changedPerson.years[2026] = { ...changedPerson.years[2026], income: { ...changedPerson.years[2026].income, otherSalaryIncome: 500_000 } };
       const incoming: AppData = {
         schemaVersion: CURRENT_SCHEMA_VERSION,
-        persons: [{ ...structuredClone(existing), updatedAt: new Date(Date.now() + 60_000).toISOString() }],
+        persons: [changedPerson],
         activePersonId: null,
         appSettings: emptyAppData().appSettings,
       };

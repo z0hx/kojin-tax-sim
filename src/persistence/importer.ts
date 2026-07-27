@@ -54,6 +54,16 @@ export interface ImportPreview {
   removed: ImportPreviewEntry[];
 }
 
+/** incoming側の人物が持つ年度のうち、既存人物の同じ年度と内容が異なる(または既存に無い)年度だけを返す。
+ *  単純に`Object.keys(incoming.years)`を返すと、内容が同一の年度まで「変更あり」と表示してしまい、
+ *  02仕様書§2.4.5ワイヤーフレームの「└ 2026年分: エクスポート側が新しい」という実差分の開示にならない
+ *  (レビューで発見)。YearProfileはJSON化可能なプレーンデータのみのため、JSON文字列比較で十分に判定できる。 */
+function computeChangedYears(incomingPerson: Person, existingPerson: Person | undefined): number[] {
+  const years = Object.keys(incomingPerson.years).map(Number);
+  if (!existingPerson) return years;
+  return years.filter((y) => JSON.stringify(incomingPerson.years[y]) !== JSON.stringify(existingPerson.years[y]));
+}
+
 export function buildImportPreview(
   current: AppData,
   parsed: ParsedImport,
@@ -85,7 +95,7 @@ export function buildImportPreview(
       added: incoming.persons.filter((p) => !currentById.has(p.id)).map((p) => ({ id: p.id, displayName: p.displayName })),
       updated: incoming.persons
         .filter((p) => currentById.has(p.id))
-        .map((p) => ({ id: p.id, displayName: p.displayName, changedYears: Object.keys(p.years).map(Number) })),
+        .map((p) => ({ id: p.id, displayName: p.displayName, changedYears: computeChangedYears(p, currentById.get(p.id)) })),
       removed: current.persons
         .filter((p) => !incoming.persons.some((ip) => ip.id === p.id))
         .map((p) => ({ id: p.id, displayName: p.displayName })),
@@ -100,7 +110,7 @@ export function buildImportPreview(
     if (!existing) {
       added.push({ id: p.id, displayName: p.displayName });
     } else if (new Date(p.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
-      updated.push({ id: p.id, displayName: p.displayName, changedYears: Object.keys(p.years).map(Number) });
+      updated.push({ id: p.id, displayName: p.displayName, changedYears: computeChangedYears(p, existing) });
     }
   }
   return { ...base, added, updated, removed: [] };
