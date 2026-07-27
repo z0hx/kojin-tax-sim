@@ -10,6 +10,9 @@
   --color-danger: #c0392b;
   --color-danger-bg: #fdecea;
   --color-selected-bg: #e8f0fe;
+  /* S-04住宅ローン控除内訳(積み上げ棒)の系列色。datavizスキルの既定カテゴリカルパレット slot1/slot2 */
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +24,8 @@
     --color-danger: #ff6b6b;
     --color-danger-bg: #3a1f1f;
     --color-selected-bg: #26344d;
+    --color-series-1: #3987e5;
+    --color-series-2: #d95926;
   }
 }
 
