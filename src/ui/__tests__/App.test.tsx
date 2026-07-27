@@ -57,6 +57,8 @@ describe('App(人物プロファイル管理)', () => {
   it('人物が0件の場合はWelcomeScreenが表示され、作成すると共通ヘッダーが現れる', async () => {
     await renderAppAndWaitLoaded();
     expect(screen.getByText('まずは人物を作成してください。', { exact: false })).toBeInTheDocument();
+    // NFR-09: 免責表示はonboarding中の画面でも表示される(レビューで発見: WelcomeScreenに免責が無かった不整合の是正)
+    expect(screen.getByText('税務上の助言ではありません', { exact: false })).toBeInTheDocument();
 
     const nameInput = screen.getByLabelText('表示名(本名でなくても構いません)');
     await userEvent.clear(nameInput);

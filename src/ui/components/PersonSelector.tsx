@@ -17,11 +17,26 @@ export function PersonSelector() {
 
   useEffect(() => {
     if (!open) return;
+    // 開いたら最初の候補にフォーカスする(キーボード操作者向け)
+    containerRef.current?.querySelector<HTMLButtonElement>('[role="listbox"] button')?.focus();
+
     const handlePointerDown = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const items = containerRef.current?.querySelectorAll<HTMLButtonElement>('[role="listbox"] button');
+        if (!items || items.length === 0) return;
+        const list = Array.from(items);
+        const currentIndex = list.indexOf(document.activeElement as HTMLButtonElement);
+        const nextIndex = e.key === 'ArrowDown' ? (currentIndex + 1) % list.length : (currentIndex - 1 + list.length) % list.length;
+        list[nextIndex]?.focus();
+      }
     };
     window.addEventListener('mousedown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown);

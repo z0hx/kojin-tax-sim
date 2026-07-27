@@ -22,21 +22,38 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     confirmRef.current?.focus();
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape') {
+        if (!busy) onCancel();
+        return;
+      }
+      // フォーカス可能な要素はcancel/confirmの2つだけなので、その間だけTabで循環させる(簡易フォーカストラップ)
+      if (e.key === 'Tab') {
+        const active = document.activeElement;
+        if (e.shiftKey && active === cancelRef.current) {
+          e.preventDefault();
+          confirmRef.current?.focus();
+        } else if (!e.shiftKey && active === confirmRef.current) {
+          e.preventDefault();
+          cancelRef.current?.focus();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
+  }, [onCancel, busy]);
 
   return (
     <div
       role="presentation"
-      onClick={onCancel}
+      onClick={() => {
+        if (!busy) onCancel();
+      }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -67,7 +84,7 @@ export function ConfirmDialog({
         </h2>
         <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-          <button type="button" onClick={onCancel} disabled={busy}>
+          <button ref={cancelRef} type="button" onClick={onCancel} disabled={busy}>
             {cancelLabel}
           </button>
           <button

@@ -2,7 +2,7 @@ import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { buildCalculationResult } from '../domain/engine';
 import type { YearProfile } from '../domain/types';
 import { loadAppData, saveAppData, clearAppData } from '../persistence/repository';
-import { emptyAppData, defaultAppSettings, type AppData, type Person } from '../persistence/types';
+import { emptyAppData, type AppData, type Person } from '../persistence/types';
 import { loadUiSettings, saveUiSettings } from '../persistence/settings';
 import { exportData as exportDataFile, buildFileName, saveBlob, sanitizeFilenamePart } from '../persistence/exporter';
 import { parseImportFile, buildImportPreview, applyImport } from '../persistence/importer';
@@ -401,13 +401,7 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       if (!person) return;
 
       try {
-        const backupPayload: AppData = {
-          schemaVersion: state.appData.schemaVersion,
-          persons: [person],
-          activePersonId: null,
-          appSettings: defaultAppSettings(),
-        };
-        const blob = await exportDataFile(backupPayload, { personIds: 'all', includeSettings: false });
+        const blob = await exportDataFile(state.appData, { personIds: [personId], includeSettings: false });
         const target = sanitizeFilenamePart(person.displayName) ?? person.id.slice(0, 8);
         await saveBlob(blob, buildFileName(`backup-${target}`, false));
       } catch (e) {
@@ -420,10 +414,14 @@ function createStoreImpl(set: Set, get: Get): AppStore {
         return;
       }
 
-      const wasActive = state.activePersonId === personId;
-      const persons = state.appData.persons.filter((p) => p.id !== personId);
-      const newActivePersonId = wasActive ? (persons[0]?.id ?? null) : state.appData.activePersonId;
-      const newAppData: AppData = { ...state.appData, persons, activePersonId: newActivePersonId };
+      // バックアップ待ち(ファイル保存ダイアログ等)の間に他の操作でappDataが変わっている可能性があるため、
+      // ここで最新状態を取り直す(レビューで発見: 古いstateのまま削除すると割り込んだ変更を上書きしてしまう)
+      const latest = get();
+      if (!latest.appData || !latest.appData.persons.some((p) => p.id === personId)) return;
+      const wasActive = latest.activePersonId === personId;
+      const persons = latest.appData.persons.filter((p) => p.id !== personId);
+      const newActivePersonId = wasActive ? (persons[0]?.id ?? null) : latest.appData.activePersonId;
+      const newAppData: AppData = { ...latest.appData, persons, activePersonId: newActivePersonId };
       const onboardingRequired = persons.length === 0;
 
       try {
@@ -446,7 +444,7 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       const fallbackPerson = persons[0];
       const years = fallbackPerson ? Object.keys(fallbackPerson.years).map(Number) : [];
       const newActiveYear = years.length > 0 ? Math.max(...years) : null;
-      const newResult = computeResult(newAppData, newActivePersonId, newActiveYear, state.taxParams);
+      const newResult = computeResult(newAppData, newActivePersonId, newActiveYear, latest.taxParams);
       set({
         appData: newAppData,
         activePersonId: newActivePersonId,

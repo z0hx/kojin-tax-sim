@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { Disclaimer } from '../components/Disclaimer';
 
 const DEFAULT_COLOR = '#3366cc';
 
@@ -20,26 +21,29 @@ export function WelcomeScreen() {
   }
 
   return (
-    <main style={{ maxWidth: 480, margin: '3rem auto', padding: '0 1rem' }}>
-      <h1>TaxSim</h1>
-      <p>個人税額・ふるさと納税上限シミュレータ</p>
-      <p>入力したデータはこの端末のブラウザ内にのみ保存されます。まずは人物を作成してください。</p>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <label>
-          表示名(本名でなくても構いません)
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
-          />
-        </label>
-        <label>
-          識別色
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ display: 'block', marginTop: '0.25rem' }} />
-        </label>
-        <button type="submit">作成</button>
-      </form>
-    </main>
+    <div>
+      <main style={{ maxWidth: 480, margin: '3rem auto', padding: '0 1rem' }}>
+        <h1>TaxSim</h1>
+        <p>個人税額・ふるさと納税上限シミュレータ</p>
+        <p>入力したデータはこの端末のブラウザ内にのみ保存されます。まずは人物を作成してください。</p>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <label>
+            表示名(本名でなくても構いません)
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
+            />
+          </label>
+          <label>
+            識別色
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ display: 'block', marginTop: '0.25rem' }} />
+          </label>
+          <button type="submit">作成</button>
+        </form>
+      </main>
+      <Disclaimer />
+    </div>
   );
 }

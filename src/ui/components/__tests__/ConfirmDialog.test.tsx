@@ -43,4 +43,18 @@ describe('ConfirmDialog', () => {
     expect(screen.getByText('処理中…')).toBeDisabled();
     expect(screen.getByText('キャンセル')).toBeDisabled();
   });
+
+  it('busy中はEscapeキーでonCancelが呼ばれない(レビューで発見: 処理中に閉じられる不整合の是正)', async () => {
+    const onCancel = vi.fn();
+    render(<ConfirmDialog title="t" message="m" busy onConfirm={vi.fn()} onCancel={onCancel} />);
+    await userEvent.keyboard('{Escape}');
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('busy中は背景クリックでonCancelが呼ばれない', async () => {
+    const onCancel = vi.fn();
+    render(<ConfirmDialog title="t" message="m" busy onConfirm={vi.fn()} onCancel={onCancel} />);
+    await userEvent.click(screen.getByRole('presentation'));
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

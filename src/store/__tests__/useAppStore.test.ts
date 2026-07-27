@@ -342,6 +342,28 @@ describe('useAppStore', () => {
       expect(s.appData!.persons.map((p) => p.id)).toEqual([idA]);
       expect(s.lastError?.message).toContain('キャンセル');
     });
+
+    it('バックアップ待機中に他の変更が入っても、その変更を上書きせずに削除する(レビューで発見: lost update是正)', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      const idB = store.getState().addPerson('配偶者', '#222222');
+
+      let resolveBackup!: () => void;
+      const backupPromise = new Promise<void>((resolve) => {
+        resolveBackup = resolve;
+      });
+      saveBlobMock.mockImplementationOnce(() => backupPromise);
+
+      const deletion = store.getState().deletePersonWithBackup(idA);
+      // deletePersonWithBackupがsaveBlobの完了を待っている間に、別の人物への変更を割り込ませる
+      store.getState().renamePerson(idB, '配偶者リネーム');
+
+      resolveBackup();
+      await deletion;
+
+      const s = store.getState();
+      expect(s.appData!.persons.map((p) => p.id)).toEqual([idB]);
+      expect(s.appData!.persons.find((p) => p.id === idB)?.displayName).toBe('配偶者リネーム');
+    });
   });
 
   describe('setCapMode', () => {
