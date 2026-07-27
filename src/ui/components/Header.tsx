@@ -69,6 +69,17 @@ export function Header() {
               role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
+                navigate('deductions');
+              }}
+              style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
+            >
+              控除入力
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
                 navigate('personManagement');
               }}
               style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
