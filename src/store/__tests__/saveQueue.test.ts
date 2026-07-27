@@ -130,6 +130,30 @@ describe('saveQueue', () => {
     await lockPromise;
   });
 
+  it('withLock中にflushNowが呼ばれても、ロック開始前の古いlastScheduledDataを保存しない(レビュー指摘 残存High是正)', async () => {
+    // schedule()の後に(タイマーが発火する前に)withLockに入るシナリオ。setActivePerson等が
+    // deleteAllData/commitImport実行中にflushNowを呼ぶケースに相当する。
+    schedule(dataWith(1)); // まだ保存されていない古いデータ
+
+    let releaseLockOp: () => void = () => {};
+    const lockOpGate = new Promise<void>((r) => {
+      releaseLockOp = r;
+    });
+    const lockPromise = withLock(async () => {
+      cancelPendingTimer();
+      await run(() => saveAppDataMock(dataWith(0))); // ロック内の正しい保存(例: 削除後の空データ)
+      await lockOpGate;
+    });
+
+    const flushPromise = flushNow(); // ロック中に呼ばれる
+    releaseLockOp();
+    await lockPromise;
+    await flushPromise;
+
+    expect(saveAppDataMock).toHaveBeenCalledTimes(1);
+    expect(saveAppDataMock).toHaveBeenCalledWith(dataWith(0)); // dataWith(1)は保存されていない
+  });
+
   it('isSavingの変化がsetSavingListener経由でtrue→falseの順に通知される', async () => {
     const states: boolean[] = [];
     setSavingListener((s) => states.push(s));

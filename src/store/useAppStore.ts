@@ -176,9 +176,12 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       }
 
       const ui = loadUiSettings();
+      // localStorage(ui.lastActivePersonId)はperson切替のたびに同期的に書かれるため、500msデバウンス
+      // 保存のappData.activePersonIdより新しい可能性が高い(タブを閉じるタイミング次第でappData側は
+      // 反映前のままになりうる)。よってlocalStorageを優先し、appData側はフォールバックとする
       const activePersonId =
-        (loaded.activePersonId && loaded.persons.some((p) => p.id === loaded!.activePersonId) ? loaded.activePersonId : null) ??
         (ui.lastActivePersonId && loaded.persons.some((p) => p.id === ui.lastActivePersonId) ? ui.lastActivePersonId : null) ??
+        (loaded.activePersonId && loaded.persons.some((p) => p.id === loaded!.activePersonId) ? loaded.activePersonId : null) ??
         (loaded.persons[0]?.id ?? null);
       const activePerson = activePersonId ? loaded.persons.find((p) => p.id === activePersonId) : undefined;
       const years = activePerson ? Object.keys(activePerson.years).map(Number) : [];
@@ -216,7 +219,11 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       if (!person) return;
       const years = Object.keys(person.years).map(Number);
       const year = years.length > 0 ? Math.max(...years) : null;
-      set({ activePersonId: personId, activeYear: year, calculationResult: null });
+      // appData.activePersonIdもここで更新しておく(レビューで発見: 更新しないとputYearProfile経由で
+      // 古い値が永続化され続け、次回起動時にlocalStorageの選択と食い違う)
+      const newAppData = { ...state.appData, activePersonId: personId };
+      set({ appData: newAppData, activePersonId: personId, activeYear: year, calculationResult: null });
+      saveQueue.schedule(newAppData);
       persistUiSelection(personId, year);
       if (year !== null) {
         await finalizeAfterYearSwitch(set, get, personId, year);
@@ -423,17 +430,21 @@ function createStoreImpl(set: Set, get: Get): AppStore {
         }
       }
 
-      const newAppData = applyImport(current, incoming, mode);
+      let newAppData: AppData;
       try {
+        newAppData = applyImport(current, incoming, mode);
+        // recordSavedはロックが解除される前(withLockのコールバック内)で確定させる。
+        // ロック解除後までrecordSavedを遅らせると、その間にflushNow()等が古いlastScheduledDataを
+        // 見てしまう窓ができるため(レビューで発見された残存High不具合の是正)。
         await saveQueue.withLock(async () => {
           saveQueue.cancelPendingTimer();
           await saveQueue.run(() => saveAppData(newAppData));
+          saveQueue.recordSaved(newAppData);
         });
       } catch (e) {
         set({ lastError: e as AppError });
         return;
       }
-      saveQueue.recordSaved(newAppData);
 
       const activePersonId = newAppData.activePersonId;
       const person = activePersonId ? newAppData.persons.find((p) => p.id === activePersonId) : undefined;
@@ -486,12 +497,13 @@ function createStoreImpl(set: Set, get: Get): AppStore {
         await saveQueue.withLock(async () => {
           saveQueue.cancelPendingTimer();
           await saveQueue.run(() => clearAppData());
+          // ロック解除前にrecordSavedを確定させる(commitImportと同じ理由。上のコメント参照)
+          saveQueue.recordSaved(emptyAppData());
         });
       } catch (e) {
         set({ lastError: e as AppError });
         return;
       }
-      saveQueue.recordSaved(emptyAppData());
       set({
         appData: emptyAppData(),
         activePersonId: null,

@@ -15,6 +15,7 @@ import { installMemoryLocalStorage, stubFetchForTaxParams, uninstallMemoryLocalS
 import { CURRENT_SCHEMA_VERSION } from '../../persistence/migration';
 import { emptyAppData, type AppData } from '../../persistence/types';
 import { TaxParamsError } from '../../taxParams/loader';
+import { loadUiSettings, saveUiSettings } from '../../persistence/settings';
 
 function monthly(gross: number, social: number) {
   return Array.from({ length: 12 }, (_, i) => ({
@@ -170,6 +171,34 @@ describe('useAppStore', () => {
       const s = store.getState();
       expect(s.activeYear).toBe(2099);
       expect(s.calculationResult).toBeNull();
+    });
+
+    it('切替後、永続化されるappData.activePersonIdも新しい人物に更新される(レビュー指摘是正: 食い違い防止)', async () => {
+      const idA = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().addPerson('配偶者', '#222222'); // これがactiveになる
+      await store.getState().createBlankYear(2026);
+
+      await store.getState().setActivePerson(idA);
+      await flushNow();
+
+      const persisted = await loadAppData();
+      expect(persisted?.activePersonId).toBe(idA);
+    });
+
+    it('loadInitialDataはappData.activePersonIdとlocalStorageが食い違う場合、localStorage側を優先する(デバウンス保存のラグ対策)', async () => {
+      const setupStore = createAppStore();
+      const idA = setupStore.getState().addPerson('本人', '#111111');
+      await setupStore.getState().createBlankYear(2026);
+      setupStore.getState().addPerson('配偶者', '#222222');
+      await setupStore.getState().createBlankYear(2026);
+      await flushNow(); // この時点でappData.activePersonIdは配偶者側になっている
+
+      // idAへ切り替えた直後にタブが閉じた状況を模擬する: localStorageだけが先に進んでいる
+      saveUiSettings({ ...loadUiSettings(), lastActivePersonId: idA, lastActiveYear: 2026 });
+
+      await store.getState().loadInitialData();
+      expect(store.getState().activePersonId).toBe(idA);
     });
   });
 

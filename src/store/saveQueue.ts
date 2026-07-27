@@ -14,7 +14,13 @@ let pending: Promise<void> = Promise.resolve();
 let locked = false;
 let onSavingChange: ((saving: boolean) => void) | undefined;
 
-/** ストア側が`isSaving`をstateに反映するためのリスナーを1つだけ登録する */
+/**
+ * ストア側が`isSaving`をstateに反映するためのリスナーを1つだけ登録する。
+ * saveQueueはモジュール単位のシングルトンであり、リスナーも1つしか保持できない。
+ * `createAppStore()`を複数回呼ぶ(テスト等)と、後から生成したストアのリスナーが前のものを上書きする。
+ * 本番では`useAppStore`インスタンスが1つしか存在しないため問題にならないが、複数ストアを同時に
+ * 使う場合はこの前提が崩れる点に注意。
+ */
 export function setSavingListener(cb: ((saving: boolean) => void) | undefined): void {
   onSavingChange = cb;
 }
@@ -60,9 +66,18 @@ export function run(op: () => Promise<void>): Promise<void> {
 /**
  * 保留中のタイマーがあれば即座にキャンセルし、最後にscheduleされたdataで直ちに保存を実行して完了を待つ。
  * 保留タイマーが無ければ、現在直列化チェーンで実行中の保存の完了のみを待つ。
+ *
+ * lockedの間(deleteAllData/commitImport実行中)は新規保存を試みない。lastScheduledDataは
+ * ロック開始前の(まもなく無効になる)古いデータを指している可能性があり、それを保存すると
+ * 削除/インポート直後にデータが復活しかねない(withLockのrun()より後にこのrunが直列化されるため)。
+ * ロック中に呼ばれた場合は、現在直列化チェーンで進行中の処理の完了のみを待つ。
  */
 export async function flushNow(): Promise<void> {
   cancelPendingTimer();
+  if (locked) {
+    await pending;
+    return;
+  }
   if (lastScheduledData) {
     const data = lastScheduledData;
     await run(() => saveAppData(data));
