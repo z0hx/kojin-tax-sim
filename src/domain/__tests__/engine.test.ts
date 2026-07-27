@@ -189,3 +189,44 @@ describe('calcSnapshot: 同一生計配偶者がいる場合の非課税限度�
     expect(snap.residentTax.perCapitaLevy).toBeGreaterThan(0);
   });
 });
+
+describe('calcSnapshot: trace(Issue #10 S-05計算明細画面向けの計算式・根拠メタデータ)', () => {
+  it('主要なステップにformula(計算式)とrefs(根拠)が付与されている', () => {
+    const profile = makeM1Profile(32_000_000);
+    const snap = calcSnapshot(profile, 0 as Yen, TAX_PARAMS_2026, 'standard');
+    const byKey = (key: string) => snap.trace.find((t) => t.key === key);
+
+    for (const key of [
+      'salaryDeduction',
+      'salaryIncome',
+      'taxableIncome',
+      'marginalRate',
+      'calculatedTax',
+      'housingLoanCreditAvailable',
+      'taxAfterCredits',
+      'reconstructionTax',
+      'incomeLevyBeforeAdj',
+      'adjustmentCredit',
+      'incomeLevy',
+      'housingLoanResidentCap',
+      'housingLoanWasted',
+      'incomeLevyFinal',
+      'perCapitaLevy',
+    ]) {
+      const step = byKey(key);
+      expect(step, `trace step "${key}" が見つからない`).toBeDefined();
+      expect(step!.formula, `trace step "${key}" にformulaが無い`).toBeTruthy();
+      expect(step!.refs?.length, `trace step "${key}" にrefsが無い`).toBeGreaterThan(0);
+    }
+  });
+
+  it('trace配列の順序は計算の流れ(所得→所得税→住民税)を保つ', () => {
+    const profile = makeM1Profile(32_000_000);
+    const snap = calcSnapshot(profile, 0 as Yen, TAX_PARAMS_2026, 'standard');
+    const keys = snap.trace.map((t) => t.key);
+    expect(keys.indexOf('grossTotal')).toBeLessThan(keys.indexOf('taxableIncome'));
+    expect(keys.indexOf('taxableIncome')).toBeLessThan(keys.indexOf('calculatedTax'));
+    expect(keys.indexOf('calculatedTax')).toBeLessThan(keys.indexOf('taxableResident'));
+    expect(keys.indexOf('taxableResident')).toBeLessThan(keys.indexOf('incomeLevyFinal'));
+  });
+});
