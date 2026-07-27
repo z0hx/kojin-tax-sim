@@ -13,7 +13,7 @@ export default defineConfig({
     setupFiles: ['src/persistence/__tests__/setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/domain/**', 'src/persistence/**'],
+      include: ['src/domain/**', 'src/persistence/**', 'src/store/**'],
     },
   },
 });
