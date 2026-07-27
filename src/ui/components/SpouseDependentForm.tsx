@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Dependent, SpouseInput } from '../../domain/types';
+import { parseNonNegativeInt } from '../parseAmount';
 
 interface SpouseDependentFormProps {
   spouse: SpouseInput | undefined;
@@ -8,11 +9,9 @@ interface SpouseDependentFormProps {
   onChangeDependents: (dependents: Dependent[]) => void;
 }
 
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
-}
+/** 扶養控除の対象は16歳以上(domain/deductions.tsのDEPENDENT_MIN_AGEと同じ基準)。
+ *  年少扶養親族は児童手当に一本化されているため対象外。 */
+const DEPENDENT_MIN_AGE = 16;
 
 /** S-03 配偶者控除・扶養控除欄(02仕様書§3.2、FR-05)。 */
 export function SpouseDependentForm({ spouse, dependents, onChangeSpouse, onChangeDependents }: SpouseDependentFormProps) {
@@ -104,6 +103,11 @@ export function SpouseDependentForm({ spouse, dependents, onChangeSpouse, onChan
             ＋ 扶養親族を追加
           </button>
         </div>
+        {(parseNonNegativeInt(ageInput) ?? 0) < DEPENDENT_MIN_AGE && (
+          <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+            16歳未満は扶養控除の対象外です(児童手当の対象のため)。追加はできますが控除額には反映されません。
+          </p>
+        )}
         {addError && (
           <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '0.85rem' }}>
             {addError}
@@ -121,7 +125,12 @@ export function SpouseDependentForm({ spouse, dependents, onChangeSpouse, onChan
             <tbody>
               {dependents.map((d) => (
                 <tr key={d.id} style={{ borderTop: '1px solid var(--color-border)' }}>
-                  <td style={{ padding: '0.25rem 0.5rem' }}>{d.age}歳</td>
+                  <td style={{ padding: '0.25rem 0.5rem' }}>
+                    {d.age}歳
+                    {d.age < DEPENDENT_MIN_AGE && (
+                      <span style={{ marginLeft: '0.4rem', fontSize: '0.8rem', color: 'var(--color-muted)' }}>(控除対象外)</span>
+                    )}
+                  </td>
                   <td style={{ padding: '0.25rem 0.5rem' }}>{d.isCoresidentElderlyParent ? '該当' : '—'}</td>
                   <td style={{ padding: '0.25rem 0.5rem' }}>
                     <button type="button" onClick={() => handleRemoveDependent(d.id)}>

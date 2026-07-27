@@ -13,6 +13,7 @@ import { useAppStore, initialState } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { clearAppData } from '../../persistence/repository';
 import { flushNow, resetSaveQueueForTests } from '../../store/saveQueue';
+import { StorageError } from '../../persistence/errors';
 import {
   installMemoryLocalStorage,
   installStoragePersistMock,
@@ -125,5 +126,24 @@ describe('DeductionsScreen(S-03)', () => {
     await userEvent.type(paidInput, '150000');
 
     await waitFor(() => expect(within(main).getByText(/ワンストップ特例は利用できません/)).toBeInTheDocument());
+  });
+
+  it('無関係な操作由来のlastErrorが残っていても、控除入力欄はブロックされずバナー表示のみになる(実装後レビュー対応)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+    await renderAppAndWaitLoaded();
+
+    // エクスポート失敗等、控除入力と無関係な操作でlastErrorがセットされている状況を再現する
+    useAppStore.setState({ lastError: new StorageError('エクスポートに失敗しました。') });
+
+    const main = await openDeductionsScreen();
+    expect(within(main).getByRole('alert')).toHaveTextContent('エクスポートに失敗しました。');
+    // バナーは出るが、入力欄自体は隠れずに操作できる
+    expect(within(main).getByLabelText('iDeCo年間掛金合計')).toBeInTheDocument();
+
+    await userEvent.click(within(main).getByRole('button', { name: '閉じる' }));
+    expect(useAppStore.getState().lastError).toBeNull();
   });
 });

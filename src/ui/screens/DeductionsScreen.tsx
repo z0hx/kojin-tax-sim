@@ -9,12 +9,7 @@ import { EarthquakeInsuranceForm } from '../components/EarthquakeInsuranceForm';
 import { MedicalDeductionForm } from '../components/MedicalDeductionForm';
 import { SpouseDependentForm } from '../components/SpouseDependentForm';
 import { DisabilityDeductionForm } from '../components/DisabilityDeductionForm';
-
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
-}
+import { parseNonNegativeInt } from '../parseAmount';
 
 /**
  * S-03 控除入力画面(02仕様書§5相当、03詳細設計書§6.3、Issue #7)。
@@ -57,7 +52,22 @@ export function DeductionsScreen() {
 
   const params = taxParams[profile.year];
 
-  if (lastError) {
+  // lastErrorは他の操作(エクスポート失敗・他年度のtaxParams先読み失敗等)でもセットされるグローバル状態のため、
+  // 画面全体を占有せずバナーとして表示するに留める(実装後レビュー対応: 無関係なエラーで入力欄ごと
+  // 隠れてしまう問題の是正)。calculationResult/paramsが実際に揃っていれば通常どおり入力を続けられる。
+  const errorBanner = lastError && (
+    <div
+      role="alert"
+      style={{ marginTop: '1rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem' }}
+    >
+      {lastError.message}
+      <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
+        閉じる
+      </button>
+    </div>
+  );
+
+  if (!calculationResult || !params) {
     return (
       <main style={{ maxWidth: 720, margin: '2rem auto', padding: '0 1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -66,22 +76,7 @@ export function DeductionsScreen() {
           </button>
           <h1 style={{ margin: 0 }}>控除入力</h1>
         </div>
-        <div
-          role="alert"
-          style={{ marginTop: '1.5rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem' }}
-        >
-          {lastError.message}
-          <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
-            閉じる
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  if (!calculationResult || !params) {
-    return (
-      <main style={{ maxWidth: 720, margin: '2rem auto', padding: '0 1rem' }}>
+        {errorBanner}
         <p style={{ marginTop: '1.5rem' }}>税制パラメータを計算しています…</p>
       </main>
     );
@@ -91,6 +86,9 @@ export function DeductionsScreen() {
   const incomeAfterLeave = applyLeavePeriods(profile.income, profile.year);
   const socialInsuranceActualSum = (sumMonthlySocialInsurance(incomeAfterLeave) + sumBonusSocialInsurance(incomeAfterLeave)) as Yen;
   const childUnder23CapApplicable = params.incomeTax.lifeInsurance.newGeneralChildUnder23Cap !== undefined;
+  // ワンストップ特例併用不可の警告はdomain/warnings.tsのW-04判定をそのまま参照する(UI側で条件を
+  // 再実装するとロジックがドリフトするため。実装後レビュー対応)。
+  const oneStopWarningActive = calculationResult.warnings.some((w) => w.id === 'W-04');
 
   return (
     <main style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1rem' }}>
@@ -100,6 +98,7 @@ export function DeductionsScreen() {
         </button>
         <h1 style={{ margin: 0 }}>控除入力 ({profile.year}年分)</h1>
       </div>
+      {errorBanner}
 
       <section style={{ marginTop: '1rem' }}>
         <p style={{ margin: 0 }}>
@@ -134,7 +133,7 @@ export function DeductionsScreen() {
           value={d.medical}
           totalIncome={calculationResult.income.totalIncome}
           params={params.incomeTax.medical}
-          oneStopSelected={profile.furusato.method === 'oneStop'}
+          oneStopWarningActive={oneStopWarningActive}
           onChange={(medical) => updateDeductions({ medical })}
         />
       </AccordionSection>

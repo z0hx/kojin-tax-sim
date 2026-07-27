@@ -1,3 +1,5 @@
+import { parseNonNegativeInt } from '../parseAmount';
+
 interface EarthquakeInsuranceValue {
   long: number;
   short: number;
@@ -6,12 +8,6 @@ interface EarthquakeInsuranceValue {
 interface EarthquakeInsuranceFormProps {
   value: EarthquakeInsuranceValue;
   onChange: (value: EarthquakeInsuranceValue) => void;
-}
-
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
 }
 
 /** S-03 地震保険料控除欄(02仕様書§3.2.4)。長期(地震保険料本体)・短期(旧長期損害保険料の経過措置)。 */

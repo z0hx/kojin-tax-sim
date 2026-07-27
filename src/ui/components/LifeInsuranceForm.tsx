@@ -1,15 +1,10 @@
 import type { LifeInsuranceInput } from '../../domain/types';
+import { parseNonNegativeInt } from '../parseAmount';
 
 interface LifeInsuranceFormProps {
   value: LifeInsuranceInput;
   childUnder23CapApplicable: boolean;
   onChange: (value: LifeInsuranceInput) => void;
-}
-
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
 }
 
 function AmountField({ label, amount, onChange }: { label: string; amount: number; onChange: (n: number) => void }) {

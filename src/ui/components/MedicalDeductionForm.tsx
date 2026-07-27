@@ -2,19 +2,16 @@ import { useEffect, useState } from 'react';
 import { calcMedicalDeduction } from '../../domain/deductions';
 import type { MedicalInput, Yen } from '../../domain/types';
 import type { TaxParams } from '../../taxParams/schema';
+import { parseNonNegativeInt } from '../parseAmount';
 
 interface MedicalDeductionFormProps {
   value: MedicalInput;
   totalIncome: Yen;
   params: TaxParams['incomeTax']['medical'];
-  oneStopSelected: boolean;
+  /** calculationResult.warnings に W-04(oneStopInvalidWithMedical)が含まれているか。
+   *  UI側で条件を再実装せずdomain/warnings.tsの判定結果をそのまま渡す(実装後レビュー対応: ロジック重複によるドリフト防止)。 */
+  oneStopWarningActive: boolean;
   onChange: (value: MedicalInput) => void;
-}
-
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
 }
 
 const MODE_LABELS: Record<MedicalInput['mode'], string> = {
@@ -36,7 +33,7 @@ const MODE_LABELS: Record<MedicalInput['mode'], string> = {
  * 反映され、かつ「編集後の組み合わせ」で検証するため、不整合な既存値からでも
  * 有効な組み合わせに達した時点で自動的にコミットされ是正できる。
  */
-export function MedicalDeductionForm({ value, totalIncome, params, oneStopSelected, onChange }: MedicalDeductionFormProps) {
+export function MedicalDeductionForm({ value, totalIncome, params, oneStopWarningActive, onChange }: MedicalDeductionFormProps) {
   const [paidText, setPaidText] = useState(String(value.paid));
   const [reimbursedText, setReimbursedText] = useState(String(value.reimbursed));
   const [selfMedicationText, setSelfMedicationText] = useState(String(value.selfMedication));
@@ -167,7 +164,7 @@ export function MedicalDeductionForm({ value, totalIncome, params, oneStopSelect
         </p>
       </div>
 
-      {oneStopSelected && value.paid > 0 && (
+      {oneStopWarningActive && (
         <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '0.85rem', margin: 0 }}>
           医療費控除があるためワンストップ特例は利用できません(確定申告が必要です)。
         </p>

@@ -1,16 +1,11 @@
 import { useState } from 'react';
 import type { Yen } from '../../domain/types';
+import { parseNonNegativeInt } from '../parseAmount';
 
 interface SocialInsuranceOverrideFieldProps {
   actualSum: Yen;
   value: number | undefined;
   onChange: (value: number | undefined) => void;
-}
-
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
 }
 
 /**
