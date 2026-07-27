@@ -10,6 +10,7 @@ import { IncomeScreen } from './ui/screens/IncomeScreen';
 import { DeductionsScreen } from './ui/screens/DeductionsScreen';
 import { HousingLoanScreen } from './ui/screens/HousingLoanScreen';
 import { DashboardScreen } from './ui/screens/DashboardScreen';
+import { CalculationDetailScreen } from './ui/screens/CalculationDetailScreen';
 
 export default function App() {
   const isLoading = useAppStore((s) => s.isLoading);
@@ -43,6 +44,8 @@ export default function App() {
         <DeductionsScreen />
       ) : screen === 'housingLoan' ? (
         <HousingLoanScreen />
+      ) : screen === 'calculationDetail' ? (
+        <CalculationDetailScreen />
       ) : (
         <DashboardScreen />
       )}
