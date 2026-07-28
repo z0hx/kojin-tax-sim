@@ -6,6 +6,7 @@ import type { ExportOptions } from '../persistence/exporter';
 import type { TaxParams } from '../taxParams/schema';
 import type { TaxParamsError } from '../taxParams/loader';
 import type {
+  ActualValues,
   DeductionInput,
   FurusatoCapMode,
   FurusatoInput,
@@ -61,6 +62,9 @@ export interface AppStoreActions {
   /** HousingLoanInputはYearProfile上optionalなオブジェクトであり、Partialマージは安全でないため
    *  完全なオブジェクトまたはnull(住宅ローン控除の入力を取り消す)を受け取る */
   updateHousingLoan(input: HousingLoanInput | null): void;
+  /** ActualValues(検算モード、FR-17)もHousingLoanInputと同様YearProfile上optionalなため、
+   *  完全なオブジェクトまたはnull(実績値の入力を取り消す)を受け取る */
+  updateActuals(actuals: ActualValues | null): void;
   updateFurusatoInput(patch: Partial<FurusatoInput>): void;
   updateMunicipality(patch: Partial<MunicipalityConfig>): void;
   /** 新規人物を追加し、その人物に切り替える。municipalityを省略した場合は標準税率(既定値)を使う。戻り値は新規人物のid */
