@@ -14,7 +14,8 @@ export type ScreenId =
   | 'housingLoan'
   | 'calculationDetail'
   | 'simulation'
-  | 'actuals';
+  | 'actuals'
+  | 'scenarioComparison';
 
 interface NavigationState {
   screen: ScreenId;

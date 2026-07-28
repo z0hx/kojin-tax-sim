@@ -13,6 +13,7 @@ import { DashboardScreen } from './ui/screens/DashboardScreen';
 import { CalculationDetailScreen } from './ui/screens/CalculationDetailScreen';
 import { SimulationScreen } from './ui/screens/SimulationScreen';
 import { ActualsScreen } from './ui/screens/ActualsScreen';
+import { ScenarioComparisonScreen } from './ui/screens/ScenarioComparisonScreen';
 
 export default function App() {
   const isLoading = useAppStore((s) => s.isLoading);
@@ -52,6 +53,8 @@ export default function App() {
         <SimulationScreen />
       ) : screen === 'actuals' ? (
         <ActualsScreen />
+      ) : screen === 'scenarioComparison' ? (
+        <ScenarioComparisonScreen />
       ) : (
         <DashboardScreen />
       )}

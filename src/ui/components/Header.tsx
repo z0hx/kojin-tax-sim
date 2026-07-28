@@ -124,6 +124,17 @@ export function Header() {
               role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
+                navigate('scenarioComparison');
+              }}
+              style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
+            >
+              シナリオ比較
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
                 navigate('personManagement');
               }}
               style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
