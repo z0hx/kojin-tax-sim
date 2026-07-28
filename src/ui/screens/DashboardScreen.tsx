@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { WarningBannerList } from '../components/WarningBannerList';
 import { daysSince } from '../dateUtils';
+import { compareWithActuals } from '../../domain/actuals';
 
 /** 西暦年から令和年へ変換する(令和1年=2019年)。02仕様書§5 S-01モックアップの表示形式に合わせる */
 function toReiwaYear(year: number): number {
@@ -95,6 +96,10 @@ export function DashboardScreen() {
 
   const lastExportedAt = appData?.appSettings.lastExportedAt ?? null;
   const backupOverdue = lastExportedAt === null || daysSince(lastExportedAt) >= 30;
+  // 検算未達バナー(FR-17、03詳細設計書§3.10): 実績値が入力済みで誤差±1%を超える項目がある間、
+  // 02仕様書§7.3の運用ルール(本アプリの出力を意思決定に使わない)をダッシュボードに常時表示する。
+  const actualsCheck = profile.actuals ? compareWithActuals(calculationResult, profile.actuals) : null;
+  const actualsMismatch = actualsCheck !== null && !actualsCheck.withinTolerance;
 
   const { furusato, warnings, income } = calculationResult;
   const remaining = Math.max(0, furusato.limitAmount - profile.furusato.donatedAmount);
@@ -154,6 +159,18 @@ export function DashboardScreen() {
       </div>
 
       {errorBanner}
+
+      {actualsMismatch && (
+        <p
+          role="alert"
+          style={{ marginTop: '1rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem 0.8rem', borderRadius: 6 }}
+        >
+          ⚠ 検算(実績値との突合)で誤差±1%を超える項目があります。本アプリの出力を実際の申告・納税の意思決定に使用しないでください。{' '}
+          <button type="button" onClick={() => navigate('actuals')}>
+            検算画面で確認
+          </button>
+        </p>
+      )}
 
       {backupOverdue && (
         <p

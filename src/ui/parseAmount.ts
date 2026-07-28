@@ -20,3 +20,14 @@ export function parsePercentToRate(input: string): number | null {
 export function formatRateAsPercent(rate: number): string {
   return String(Number((rate * 100).toFixed(4)));
 }
+
+/**
+ * 検算モード(Issue #12)のような「未入力(undefined)を許容する金額欄」向けのパーサ。
+ * 空文字は「未入力に戻す」として`{ value: undefined }`を返す。0以上の整数以外は
+ * 無効な入力としてnullを返す(呼び出し側で無視する。他の金額欄と同じ規約)。
+ */
+export function parseOptionalNonNegativeInt(input: string): { value: number | undefined } | null {
+  if (input.trim() === '') return { value: undefined };
+  const n = parseNonNegativeInt(input);
+  return n === null ? null : { value: n };
+}

@@ -314,6 +314,9 @@ function createStoreImpl(set: Set, get: Get): AppStore {
     updateHousingLoan(input) {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, housingLoan: input ?? undefined }));
     },
+    updateActuals(actuals) {
+      updateActiveYearProfile(set, get, (profile) => ({ ...profile, actuals: actuals ?? undefined }));
+    },
     updateFurusatoInput(patch) {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, furusato: { ...profile.furusato, ...patch } }));
     },
