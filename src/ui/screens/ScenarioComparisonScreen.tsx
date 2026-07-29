@@ -120,8 +120,13 @@ export function ScenarioComparisonScreen() {
   const variants = scenarios.map((override) => ({ override, result: runScenario(profile, override, params) }));
   const comparisonRows = compareScenarios(calculationResult, variants);
 
-  // FR-22複数年最適化: 税制パラメータが読み込み済みの年度のみを対象にする
-  const multiYearProfiles = person ? selectEligibleYearProfiles({ appData, taxParams }, person.id) : [];
+  // FR-22複数年最適化: 税制パラメータが読み込み済みで、かつ「まだ寄附できる年」のみを対象にする。
+  // optimizeAcrossYearsは上限額の大きい年から埋めるため、過去年度を渡すと確定済みの年へ配分する
+  // 実行不可能な提案になりうる(FR-22の趣旨は「今年寄附する vs 来年に回す」の配分)。
+  const currentYear = new Date().getFullYear();
+  const eligibleYearProfiles = person ? selectEligibleYearProfiles({ appData, taxParams }, person.id) : [];
+  const multiYearProfiles = eligibleYearProfiles.filter((p) => p.year >= currentYear);
+  const excludedPastYears = eligibleYearProfiles.filter((p) => p.year < currentYear).map((p) => p.year);
   const allocation =
     multiYearProfiles.length >= 2
       ? optimizeAcrossYears({
@@ -288,9 +293,14 @@ export function ScenarioComparisonScreen() {
 
       <section style={{ marginTop: '1.5rem' }}>
         <h2 style={{ fontSize: '1rem' }}>複数年配分の最適化(FR-22)</h2>
+        {excludedPastYears.length > 0 && (
+          <p style={{ color: 'var(--color-muted)', fontSize: '0.85rem' }}>
+            {excludedPastYears.join('・')}年分は寄附の受付が終了しているため、配分の対象外としています。
+          </p>
+        )}
         {allocation === null ? (
           <p style={{ color: 'var(--color-muted)' }}>
-            複数年の配分提案には、税制パラメータを読み込み済みの年度が2年分以上必要です。
+            複数年の配分提案には、税制パラメータを読み込み済みの{currentYear}年分以降の年度が2年分以上必要です。
           </p>
         ) : (
           <>
