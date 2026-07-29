@@ -3,6 +3,7 @@ import { useAppStore } from './store/useAppStore';
 import { useNavigation } from './ui/navigation';
 import { Header } from './ui/components/Header';
 import { Disclaimer } from './ui/components/Disclaimer';
+import { UpdatePrompt } from './ui/components/UpdatePrompt';
 import { OnboardingScreen } from './ui/screens/OnboardingScreen';
 import { PersonManagementScreen } from './ui/screens/PersonManagementScreen';
 import { DataManagementScreen } from './ui/screens/DataManagementScreen';
@@ -27,41 +28,44 @@ export default function App() {
     void loadInitialData();
   }, [loadInitialData]);
 
-  if (isLoading || appData === null) {
-    return <p style={{ padding: '2rem' }}>読み込み中…</p>;
-  }
-
-  if (onboardingRequired) {
-    return <OnboardingScreen />;
-  }
-
   return (
-    <div>
-      <Header />
-      {screen === 'personManagement' ? (
-        <PersonManagementScreen />
-      ) : screen === 'dataManagement' ? (
-        <DataManagementScreen />
-      ) : screen === 'income' ? (
-        <IncomeScreen />
-      ) : screen === 'deductions' ? (
-        <DeductionsScreen />
-      ) : screen === 'housingLoan' ? (
-        <HousingLoanScreen />
-      ) : screen === 'calculationDetail' ? (
-        <CalculationDetailScreen />
-      ) : screen === 'simulation' ? (
-        <SimulationScreen />
-      ) : screen === 'actuals' ? (
-        <ActualsScreen />
-      ) : screen === 'scenarioComparison' ? (
-        <ScenarioComparisonScreen />
-      ) : screen === 'householdView' ? (
-        <HouseholdViewScreen />
+    <>
+      {/* Fragmentの先頭で固定位置に置き、以下の分岐で親要素の型が変わってもUpdatePromptが
+          再マウントされないようにする(再マウントするとSW再登録・イベントリスナーが二重になる) */}
+      <UpdatePrompt />
+      {isLoading || appData === null ? (
+        <p style={{ padding: '2rem' }}>読み込み中…</p>
+      ) : onboardingRequired ? (
+        <OnboardingScreen />
       ) : (
-        <DashboardScreen />
+        <div>
+          <Header />
+          {screen === 'personManagement' ? (
+            <PersonManagementScreen />
+          ) : screen === 'dataManagement' ? (
+            <DataManagementScreen />
+          ) : screen === 'income' ? (
+            <IncomeScreen />
+          ) : screen === 'deductions' ? (
+            <DeductionsScreen />
+          ) : screen === 'housingLoan' ? (
+            <HousingLoanScreen />
+          ) : screen === 'calculationDetail' ? (
+            <CalculationDetailScreen />
+          ) : screen === 'simulation' ? (
+            <SimulationScreen />
+          ) : screen === 'actuals' ? (
+            <ActualsScreen />
+          ) : screen === 'scenarioComparison' ? (
+            <ScenarioComparisonScreen />
+          ) : screen === 'householdView' ? (
+            <HouseholdViewScreen />
+          ) : (
+            <DashboardScreen />
+          )}
+          <Disclaimer />
+        </div>
       )}
-      <Disclaimer />
-    </div>
+    </>
   );
 }
