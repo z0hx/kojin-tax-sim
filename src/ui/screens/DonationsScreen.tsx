@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { evaluateOneStopEligibility } from '../../domain/donations';
-import { daysSince, todayIso } from '../dateUtils';
+import { isDateOnlyPast, todayIso } from '../dateUtils';
 import { parseNonNegativeInt } from '../parseAmount';
 
 /**
@@ -81,7 +81,9 @@ export function DonationsScreen() {
   const limitAmount = calculationResult.furusato.limitAmount;
   const remaining = Math.max(0, limitAmount - profile.furusato.donatedAmount);
   const oneStop = evaluateOneStopEligibility(profile);
-  const deadlinePassed = daysSince(oneStop.deadline) > 0;
+  // oneStopDeadline()が返すのは日付のみの文字列。ISO日時前提のdaysSinceに渡すとUTC深夜として
+  // 解釈され、JSTでは期限超過の警告が丸1日遅れて出る(#44)
+  const deadlinePassed = isDateOnlyPast(oneStop.deadline);
   const method = profile.furusato.method;
 
   function handleAdd() {

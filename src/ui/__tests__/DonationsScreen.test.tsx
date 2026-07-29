@@ -201,6 +201,42 @@ describe('DonationsScreen(S-08相当)', () => {
     expect(within(main).getByText(/6自治体/)).toBeInTheDocument();
   });
 
+  it('ワンストップ特例の提出期限は、ローカル日付で翌日になった時点で超過警告が出る(#44)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    // 2026年分の期限は2027-01-10。ローカル1/11の0時ちょうどで超過扱いになる
+    // (日付のみの文字列をUTC深夜として解釈していた頃は、JSTで1/11 09:00まで警告が出なかった)
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.setSystemTime(new Date(2027, 0, 11, 0, 0));
+      await renderAppAndWaitLoaded();
+      const main = await openDonationsScreen();
+      expect(within(main).getByRole('alert')).toHaveTextContent('提出期限(2027-01-10)を過ぎています');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ワンストップ特例の提出期限当日は超過警告が出ない(必着の締切)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.setSystemTime(new Date(2027, 0, 10, 23, 59));
+      await renderAppAndWaitLoaded();
+      const main = await openDonationsScreen();
+      expect(within(main).queryByText(/提出期限\(2027-01-10\)を過ぎています/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('申告方式を確定申告へ切り替えるとYearProfileに保存され、W-04が発火しなくなる(FR-14)', async () => {
     installStoragePersistMock();
     useAppStore.getState().addPerson('本人', '#111111');
