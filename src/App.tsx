@@ -17,6 +17,7 @@ import { ActualsScreen } from './ui/screens/ActualsScreen';
 import { ScenarioComparisonScreen } from './ui/screens/ScenarioComparisonScreen';
 import { HouseholdViewScreen } from './ui/screens/HouseholdViewScreen';
 import { DonationsScreen } from './ui/screens/DonationsScreen';
+import { SettingsScreen } from './ui/screens/SettingsScreen';
 
 export default function App() {
   const isLoading = useAppStore((s) => s.isLoading);
@@ -63,6 +64,8 @@ export default function App() {
             <HouseholdViewScreen />
           ) : screen === 'donations' ? (
             <DonationsScreen />
+          ) : screen === 'settings' ? (
+            <SettingsScreen />
           ) : (
             <DashboardScreen />
           )}

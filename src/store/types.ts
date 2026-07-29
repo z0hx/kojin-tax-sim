@@ -1,6 +1,6 @@
 import type { ValidationError, CalculationResult } from '../domain/types';
 import type { ImportError, CryptoError, StorageError } from '../persistence/errors';
-import type { AppData } from '../persistence/types';
+import type { AppData, Person } from '../persistence/types';
 import type { ImportMode, ImportPreview } from '../persistence/importer';
 import type { ExportOptions } from '../persistence/exporter';
 import type { TaxParams } from '../taxParams/schema';
@@ -77,6 +77,9 @@ export interface AppStoreActions {
   /** FR-21。指定idの寄附実績を削除し、furusato.donatedAmountを合計額へ更新する */
   removeDonation(id: string): void;
   updateMunicipality(patch: Partial<MunicipalityConfig>): void;
+  /** FR-09/FR-13。人物の既定値(新しい年度を作成したときの初期値)を更新する。
+   *  既存年度のYearProfileには影響しない(年度ごとの設定はupdateMunicipality/setSafetyRatioで別に変更する) */
+  updatePersonDefaults(personId: string, patch: Partial<Person['defaults']>): void;
   /** 新規人物を追加し、その人物に切り替える。municipalityを省略した場合は標準税率(既定値)を使う。戻り値は新規人物のid */
   addPerson(displayName: string, color: string, municipality?: MunicipalityConfig): string;
   renamePerson(personId: string, displayName: string): void;

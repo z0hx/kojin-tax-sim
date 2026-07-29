@@ -248,4 +248,28 @@ describe('DashboardScreen(S-01)', () => {
     expect(screen.getByRole('banner')).toHaveClass('no-print');
     expect(screen.getByRole('button', { name: '印刷' }).closest('.no-print')).not.toBeNull();
   });
+
+  it('安全率スライダーを変更すると推奨額が再計算される(FR-13「安全率は変更可」)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    useAppStore.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    await waitFor(() => expect(screen.getByText(/推奨額\(安全率90%\)/)).toBeInTheDocument());
+    const limitAmount = useAppStore.getState().calculationResult!.furusato.limitAmount;
+    const before = useAppStore.getState().calculationResult!.furusato.recommendedAmount;
+
+    fireEvent.change(screen.getByLabelText(/安全率/), { target: { value: '70' } });
+
+    await waitFor(() => expect(screen.getByText(/推奨額\(安全率70%\)/)).toBeInTheDocument());
+    const after = useAppStore.getState().calculationResult!.furusato.recommendedAmount;
+    expect(useAppStore.getState().appData!.persons[0].years[2026].furusato.safetyRatio).toBeCloseTo(0.7, 6);
+    expect(after).toBeLessThan(before);
+    // 上限額(安全率を掛ける前の値)は変わらない
+    expect(useAppStore.getState().calculationResult!.furusato.limitAmount).toBe(limitAmount);
+    // 金額はspanで分割されているため、行全体のtextContentで照合する
+    expect(screen.getByText(/推奨額\(安全率70%\)/)).toHaveTextContent(`推奨額(安全率70%) ${after.toLocaleString()}円`);
+  });
 });

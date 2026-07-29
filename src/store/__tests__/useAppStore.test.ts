@@ -617,6 +617,42 @@ describe('useAppStore', () => {
     });
   });
 
+  describe('updatePersonDefaults(Issue #38)', () => {
+    it('municipalityを部分更新しても他のフィールドは既定値のまま残る', () => {
+      const personId = store.getState().addPerson('本人', '#111111');
+
+      store.getState().updatePersonDefaults(personId, { municipality: { ...yokohamaMunicipality(), name: '横浜市' } });
+
+      const defaults = store.getState().appData!.persons[0].defaults;
+      expect(defaults.municipality.name).toBe('横浜市');
+      expect(defaults.municipality.forestTax).toBe(DEFAULT_MUNICIPALITY.forestTax);
+      expect(defaults.safetyRatio).toBe(0.9);
+    });
+
+    it('既定値は新規年度の初期値になり、既存年度のYearProfileは書き換えない', async () => {
+      const personId = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2025);
+
+      store.getState().updatePersonDefaults(personId, { safetyRatio: 0.8, municipality: { ...DEFAULT_MUNICIPALITY, name: '川崎市' } });
+      await store.getState().createBlankYear(2026);
+
+      const person = store.getState().appData!.persons[0];
+      expect(person.years[2025].furusato.safetyRatio).toBe(0.9);
+      expect(person.years[2025].municipality.name).toBe('');
+      expect(person.years[2026].furusato.safetyRatio).toBe(0.8);
+      expect(person.years[2026].municipality.name).toBe('川崎市');
+    });
+
+    it('存在しない人物idを指定しても何も起きない', () => {
+      store.getState().addPerson('本人', '#111111');
+      const before = store.getState().appData;
+
+      store.getState().updatePersonDefaults('missing-id', { safetyRatio: 0.5 });
+
+      expect(store.getState().appData).toBe(before);
+    });
+  });
+
   describe('TaxParamsError(fail closed)', () => {
     it('taxParams取得に失敗した年はcalculationResultがnullのままlastErrorがセットされる', async () => {
       stubFetchForTaxParams({ 2026: 'fail' });
