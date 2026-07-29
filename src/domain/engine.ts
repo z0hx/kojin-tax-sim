@@ -154,9 +154,33 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
         params.residentTax.adjustmentCreditIncomeCutoff
       );
   const incomeLevy = incomeNonTaxable ? (0 as Yen) : calcIncomeLevy(levyBefore, adjustmentCredit);
+
+  // ふるさと納税 特例分の20%枠は、超過課税分を含めない標準税率10%の所得割額で判定するのが
+  // 実務の扱い(02仕様書§2.2)。住民税額そのものは自治体の実効税率で計算するため、枠の基準だけを
+  // 別途算出する。調整控除は税率に依らない定額計算なので、両者で同じ額を差し引く。
+  const useStandardRate = profile.municipality.useStandardRateForFurusato;
+  const capMunicipalRate = useStandardRate
+    ? params.residentTax.municipalIncomeRateStandard
+    : profile.municipality.municipalIncomeRate;
+  const capPrefecturalRate = useStandardRate
+    ? params.residentTax.prefecturalIncomeRateStandard
+    : profile.municipality.prefecturalIncomeRate;
+  const incomeLevyForFurusatoCap = incomeNonTaxable
+    ? (0 as Yen)
+    : calcIncomeLevy(calcIncomeLevyBeforeAdjustment(taxableResident, capMunicipalRate, capPrefecturalRate), adjustmentCredit);
+
   push('incomeLevyBeforeAdj', '所得割(調整控除前)', levyBefore, '課税総所得金額 × (市町村民税率 + 道府県民税率)', ['02仕様書§3.3']);
   push('adjustmentCredit', '調整控除', adjustmentCredit, '人的控除差の合計(D)と課税総所得金額に応じた算式', ['02仕様書§3.3.1']);
-  push('incomeLevy', '所得割額(20%枠基準)', incomeLevy, '所得割(調整控除前) − 調整控除', ['02仕様書§3.3.1']);
+  push('incomeLevy', '所得割額(調整控除後)', incomeLevy, '所得割(調整控除前) − 調整控除', ['02仕様書§3.3.1']);
+  push(
+    'incomeLevyForFurusatoCap',
+    'ふるさと納税20%枠の基準となる所得割額',
+    incomeLevyForFurusatoCap,
+    useStandardRate
+      ? `課税総所得金額 × 標準税率${((capMunicipalRate + capPrefecturalRate) * 100).toFixed(1)}%(市町村${(capMunicipalRate * 100).toFixed(1)}% + 道府県${(capPrefecturalRate * 100).toFixed(1)}%) − 調整控除。超過課税分は含めない`
+      : '所得割額(調整控除後)と同じ(自治体設定で標準税率を使わない指定のため)',
+    ['02仕様書§2.2', '02仕様書§3.3.2']
+  );
 
   // 住宅ローン住民税上限(モードに依らず同一)
   const hlResidentCap = incomeNonTaxable
@@ -165,7 +189,9 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
 
   // conservativeモード用: 住宅ローン控除適用後の所得割額を仮に算出し、20%枠の基準にのみ用いる(03詳細設計書§3.6)
   const incomeLevyBasisForCap =
-    mode === 'standard' ? incomeLevy : ((incomeLevy - Math.min(hlCarried, hlResidentCap, incomeLevy)) as Yen);
+    mode === 'standard'
+      ? incomeLevyForFurusatoCap
+      : ((incomeLevyForFurusatoCap - Math.min(hlCarried, hlResidentCap, incomeLevyForFurusatoCap)) as Yen);
 
   const furusatoCreditBasic = incomeNonTaxable
     ? (0 as Yen)
@@ -182,7 +208,13 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
         params.incomeTax.reconstructionSurtaxRate
       );
   push('furusatoCreditBasic', '寄附金税額控除(基本分)', furusatoCreditBasic, '(対象寄附額 − 2,000円) × 10%', ['02仕様書§3.3.2']);
-  push('furusatoCreditSpecial', '寄附金税額控除(特例分)', specialResult.capped, '(対象寄附額 − 2,000円) × (90% − 所得税率×1.021)、所得割額×20%を上限', ['02仕様書§3.3.2']);
+  push(
+    'furusatoCreditSpecial',
+    '寄附金税額控除(特例分)',
+    specialResult.capped,
+    '(対象寄附額 − 2,000円) × (90% − 所得税率×1.021)、「ふるさと納税20%枠の基準となる所得割額」×20%を上限',
+    ['02仕様書§3.3.2']
+  );
 
   const afterFurusato = Math.max(0, incomeLevy - furusatoCreditBasic - specialResult.capped) as Yen;
   const { used: hlUsedResident, wasted: hlWasted } = incomeNonTaxable
@@ -223,6 +255,7 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
       incomeLevyBeforeAdj: levyBefore,
       adjustmentCredit,
       incomeLevy,
+      incomeLevyForFurusatoCap,
       furusatoCreditBasic,
       furusatoCreditSpecial: specialResult.capped,
       housingLoanApplied: hlUsedResident,

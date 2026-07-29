@@ -136,7 +136,7 @@ describe('CalculationDetailScreen(S-05)', () => {
     await renderAppAndWaitLoaded();
     const main = await openCalculationDetailScreen();
 
-    expect(within(main).getByText(/標準/)).toBeInTheDocument();
+    expect(within(main).getByText(/^標準\(20%枠の基準/)).toBeInTheDocument();
     expect(within(main).getByText(/保守的/)).toBeInTheDocument();
     expect(within(main).getByText(/差額\(解釈による振れ幅\)/)).toBeInTheDocument();
 

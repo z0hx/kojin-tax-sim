@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { calcSnapshot } from '../engine';
+import { findFurusatoLimit } from '../furusato';
 import type { Yen } from '../types';
-import { TAX_PARAMS_2026, emptyIncome, makeM1Profile, makeProfile } from './testHelpers';
+import { TAX_PARAMS_2026, emptyIncome, makeM1Profile, makeProfile, monthlyAllYear, yokohamaMunicipality } from './testHelpers';
 
 function profileWithOtherIncome(otherSalaryIncome: number) {
   return makeProfile({ income: { ...emptyIncome(), otherSalaryIncome } });
@@ -33,6 +34,8 @@ describe('calcSnapshot: M1モデルケース (03詳細設計書§10.2)', () => {
     expect(snap.residentTax.incomeLevyBeforeAdj).toBe(235_788);
     expect(snap.residentTax.adjustmentCredit).toBe(2_500);
     expect(snap.residentTax.incomeLevy).toBe(233_288);
+    // 20%枠の基準は超過課税分(道府県0.025%)を含めない標準税率10%で算出する(02仕様書§2.2)
+    expect(snap.residentTax.incomeLevyForFurusatoCap).toBe(232_700);
     expect(snap.residentTax.incomeLevyFinal).toBe(135_700);
     expect(snap.residentTax.perCapitaLevy).toBe(5_900);
     expect(snap.residentTax.total).toBe(141_600);
@@ -54,22 +57,22 @@ describe('calcSnapshot: M1モデルケース (03詳細設計書§10.2)', () => {
   it('寄附20万円: 特例分が20%枠に到達する(T-11)', () => {
     const snap = calcSnapshot(profile, 200_000 as Yen, TAX_PARAMS_2026, 'standard');
     expect(snap.furusato.specialCapReached).toBe(true);
-    expect(snap.residentTax.furusatoCreditSpecial).toBe(Math.floor(233_288 * 0.2));
+    expect(snap.residentTax.furusatoCreditSpecial).toBe(Math.floor(232_700 * 0.2));
     expect(snap.residentTax.furusatoCreditBasic).toBe(19_800);
   });
 
-  it('寄附20万円: 住民税確定額が69,300円、自己負担133,600円相当になる', () => {
+  it('寄附20万円: 住民税確定額が69,400円、自己負担133,700円相当になる', () => {
     const zero = calcSnapshot(profile, 0 as Yen, TAX_PARAMS_2026, 'standard');
     const withD = calcSnapshot(profile, 200_000 as Yen, TAX_PARAMS_2026, 'standard');
-    expect(withD.residentTax.incomeLevyFinal).toBe(69_300);
-    expect(withD.residentTax.total).toBe(75_200);
+    expect(withD.residentTax.incomeLevyFinal).toBe(69_400);
+    expect(withD.residentTax.total).toBe(75_300);
 
     const incomeTaxReduction = zero.incomeTax.total - withD.incomeTax.total;
     const residentReduction = zero.residentTax.total - withD.residentTax.total;
     const selfBurden = 200_000 - (incomeTaxReduction + residentReduction);
     expect(incomeTaxReduction).toBe(0);
-    expect(residentReduction).toBe(66_400);
-    expect(selfBurden).toBe(133_600);
+    expect(residentReduction).toBe(66_300);
+    expect(selfBurden).toBe(133_700);
   });
 });
 
@@ -88,6 +91,56 @@ describe('calcSnapshot: conservativeモード (§4.3 R-03)', () => {
     const conservative = calcSnapshot(profile, 200_000 as Yen, TAX_PARAMS_2026, 'conservative');
     // conservativeは基準となる所得割額が住宅ローン控除分だけ小さくなるため、特例分の上限も小さくなるか同じになる
     expect(conservative.residentTax.furusatoCreditSpecial).toBeLessThanOrEqual(standard.residentTax.furusatoCreditSpecial);
+  });
+});
+
+describe('calcSnapshot: 特例分20%枠の基準税率 (useStandardRateForFurusato, 02仕様書§2.2)', () => {
+  // 横浜市(神奈川県)は道府県民税所得割が4.025%。標準税率10%との差が枠の判定に出るケース。
+  const income = { monthly: monthlyAllYear(500_000, 75_000), bonuses: [], leavePeriods: [], otherSalaryIncome: 0 };
+
+  it('trueのとき、20%枠の基準は標準税率10%の所得割額になり、実効税率の所得割額より小さくなる', () => {
+    const profile = makeProfile({ income });
+    const snap = calcSnapshot(profile, 0 as Yen, TAX_PARAMS_2026, 'standard');
+
+    const taxable = snap.residentTax.taxableIncome;
+    expect(snap.residentTax.incomeLevyBeforeAdj).toBe(Math.floor(taxable * 0.10025));
+    expect(snap.residentTax.incomeLevyForFurusatoCap).toBe(Math.floor(taxable * 0.1) - snap.residentTax.adjustmentCredit);
+    expect(snap.residentTax.incomeLevyForFurusatoCap).toBeLessThan(snap.residentTax.incomeLevy);
+  });
+
+  it('falseのとき、20%枠の基準は自治体の実効税率で算出した所得割額と一致する', () => {
+    const profile = makeProfile({
+      income,
+      municipality: { ...yokohamaMunicipality(), useStandardRateForFurusato: false },
+    });
+    const snap = calcSnapshot(profile, 0 as Yen, TAX_PARAMS_2026, 'standard');
+    expect(snap.residentTax.incomeLevyForFurusatoCap).toBe(snap.residentTax.incomeLevy);
+  });
+
+  it('超過課税を枠の基準に含めないぶん、上限額は含めた場合より小さくなる(過大算出の回帰防止)', () => {
+    // 税率差は0.025%(枠の基準で0.25%相当)しかないため、1,000円刻みの探索で差が出る
+    // 高所得ケースを使う。低所得帯では丸めに吸収されて上限額が同額になることもある。
+    const highIncome = { monthly: monthlyAllYear(2_500_000, 200_000), bonuses: [], leavePeriods: [], otherSalaryIncome: 0 };
+    const withStandardRate = findFurusatoLimit(makeProfile({ income: highIncome }), TAX_PARAMS_2026, 'standard');
+    const withActualRate = findFurusatoLimit(
+      makeProfile({ income: highIncome, municipality: { ...yokohamaMunicipality(), useStandardRateForFurusato: false } }),
+      TAX_PARAMS_2026,
+      'standard'
+    );
+    expect(withStandardRate.limit).toBeLessThan(withActualRate.limit);
+    // 簡易計算式(approxByFormula)も同じ基準を使うため、同様に小さくなる
+    expect(withStandardRate.approxByFormula).toBeLessThan(withActualRate.approxByFormula);
+  });
+
+  it('標準税率の自治体では、trueでもfalseでも上限額が変わらない', () => {
+    const standardRateMunicipality = { ...yokohamaMunicipality(), prefecturalIncomeRate: 0.04 };
+    const on = findFurusatoLimit(makeProfile({ income, municipality: standardRateMunicipality }), TAX_PARAMS_2026, 'standard');
+    const off = findFurusatoLimit(
+      makeProfile({ income, municipality: { ...standardRateMunicipality, useStandardRateForFurusato: false } }),
+      TAX_PARAMS_2026,
+      'standard'
+    );
+    expect(on.limit).toBe(off.limit);
   });
 });
 
@@ -208,6 +261,7 @@ describe('calcSnapshot: trace(Issue #10 S-05計算明細画面向けの計算式
       'incomeLevyBeforeAdj',
       'adjustmentCredit',
       'incomeLevy',
+      'incomeLevyForFurusatoCap',
       'housingLoanResidentCap',
       'housingLoanWasted',
       'incomeLevyFinal',

@@ -29,8 +29,10 @@ export interface FurusatoLimitResult {
 /** 1,000円刻みの二分探索+単調性ガードで上限額を求める(02仕様書§4.1〜4.2) */
 export function findFurusatoLimit(profile: YearProfile, params: TaxParams, mode: FurusatoCapMode): FurusatoLimitResult {
   const snapshotAtZero = calcSnapshot(profile, 0 as Yen, params, mode);
+  // 簡易計算式の分子も20%枠と同じ基準(標準税率10%の所得割額)を使う。実効税率ベースの
+  // 所得割額を使うと、超過課税のある自治体で簡易式だけが過大に出て差分方式の結果と食い違う。
   const approxByFormula = floorYen(
-    (snapshotAtZero.residentTax.incomeLevy * params.residentTax.furusatoSpecialCapRatio) /
+    (snapshotAtZero.residentTax.incomeLevyForFurusatoCap * params.residentTax.furusatoSpecialCapRatio) /
       (0.9 - snapshotAtZero.marginalRate * (1 + params.incomeTax.reconstructionSurtaxRate)) +
       2000
   );

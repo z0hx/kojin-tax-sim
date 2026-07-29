@@ -59,6 +59,7 @@ function buildResult(overrides: {
       incomeLevyBeforeAdj: zero,
       adjustmentCredit: zero,
       incomeLevy: zero,
+      incomeLevyForFurusatoCap: zero,
       furusatoCreditBasic: zero,
       furusatoCreditSpecial: zero,
       housingLoanApplied: (overrides.residentHousingLoanApplied ?? 0) as Yen,
