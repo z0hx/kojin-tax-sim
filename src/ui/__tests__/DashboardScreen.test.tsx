@@ -249,6 +249,44 @@ describe('DashboardScreen(S-01)', () => {
     expect(screen.getByRole('button', { name: '印刷' }).closest('.no-print')).not.toBeNull();
   });
 
+  it('税制パラメータの最終確認日から1年以上経過していると起動画面に警告が出る(R-01)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    // 2026.jsonのverifiedAtは2026-07-26。2年後の時点では未確認期間が1年を超える
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.setSystemTime(new Date(2028, 0, 1));
+      await renderAppAndWaitLoaded();
+      await waitFor(() => expect(screen.getByText(/税制パラメータは最終確認日/)).toBeInTheDocument());
+      expect(screen.getByText(/税制パラメータは最終確認日/)).toHaveTextContent('2026-07-26');
+
+      await userEvent.click(screen.getByRole('button', { name: '出典を確認' }));
+      await waitFor(() => expect(screen.getByRole('heading', { name: /計算明細/ })).toBeInTheDocument());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('最終確認日から1年以内なら陳腐化の警告は出ない', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.setSystemTime(new Date(2026, 11, 1));
+      await renderAppAndWaitLoaded();
+      await waitFor(() => expect(screen.getByText(/ふるさと納税 上限額/)).toBeInTheDocument());
+      expect(screen.queryByText(/税制パラメータは最終確認日/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('安全率スライダーを変更すると推奨額が再計算される(FR-13「安全率は変更可」)', async () => {
     installStoragePersistMock();
     useAppStore.getState().addPerson('本人', '#111111');

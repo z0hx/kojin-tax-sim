@@ -226,4 +226,21 @@ describe('CalculationDetailScreen(S-05)', () => {
     expect(within(main).getByRole('button', { name: '← 戻る' })).toHaveClass('no-print');
     expect(within(main).getByRole('button', { name: '印刷' })).toHaveClass('no-print');
   });
+
+  it('税制パラメータの最終確認日と出典が常時表示される(R-10)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    const main = await openCalculationDetailScreen();
+
+    const params = useAppStore.getState().taxParams[2026];
+    expect(within(main).getByRole('heading', { name: /税制パラメータの出所/ })).toBeInTheDocument();
+    expect(within(main).getByText(params.meta.verifiedAt)).toBeInTheDocument();
+    for (const source of params.meta.sources) {
+      expect(within(main).getByText(source)).toBeInTheDocument();
+    }
+  });
 });

@@ -34,3 +34,9 @@ export function isDateOnlyPast(dateOnly: string, now: Date = new Date()): boolea
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return today.getTime() > parseDateOnly(dateOnly).getTime();
 }
+
+/** 日付のみで表された日からの経過日数。ローカル日付同士の差のため、夏時間のある地域でも1日単位で数えられるよう丸める */
+export function daysSinceDateOnly(dateOnly: string, now: Date = new Date()): number {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((today.getTime() - parseDateOnly(dateOnly).getTime()) / 86_400_000);
+}
