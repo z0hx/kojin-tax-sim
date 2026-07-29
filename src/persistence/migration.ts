@@ -1,14 +1,23 @@
+import { SOCIAL_INSURANCE_ITEMS } from '../domain/types';
 import { ImportError } from './errors';
 import { CURRENT_SCHEMA_VERSION, type AppData } from './types';
+
+const SOCIAL_INSURANCE_BREAKDOWN_KEYS = SOCIAL_INSURANCE_ITEMS.map((item) => item.key);
 
 /** 03詳細設計書§5.3: バージョン番号ごとの移行関数 */
 type Migration = (data: unknown) => unknown;
 
 /**
- * v1が現行スキーマのため移行関数は無い。将来v2を切る際に `{ 2: migrateV1ToV2 }` の形で追加すると、
- * migrate()のループが古いデータを順に現行版まで引き上げる(NFR-13)。
+ * v1 → v2 (Issue #48): 社会保険料の内訳フィールドの追加。どちらも省略可能で、省略時は
+ * 一括入力(socialInsuranceInputMode === 'total'相当)として扱われるため、値の書き換えは不要。
+ * schemaVersionだけを引き上げる(バージョンを上げる理由はtypes.tsのCURRENT_SCHEMA_VERSION参照)。
  */
-const MIGRATIONS: Record<number, Migration> = {};
+function migrateV1ToV2(data: unknown): unknown {
+  return { ...(data as Record<string, unknown>), schemaVersion: 2 };
+}
+
+/** バージョン番号 → そのバージョンへ上げる移行関数。migrate()が古い順に適用する(NFR-13) */
+const MIGRATIONS: Record<number, Migration> = { 2: migrateV1ToV2 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -34,6 +43,17 @@ function assertYearProfile(profile: unknown, personId: string, year: string): vo
   for (const rec of profile.income.monthly as unknown[]) {
     if (!isPlainObject(rec) || !isNonNegativeFiniteNumber(rec.grossSalary) || !isNonNegativeFiniteNumber(rec.socialInsurance)) {
       throw new ImportError(`${where}の月次収入データに不正な値(負の数・非数値)が含まれています`);
+    }
+    // Issue #48: 社会保険料の内訳。省略可(一括入力)だが、あるならモードと全項目を検証する
+    // (内訳の合計がそのまま社会保険料控除になるため、不正値を計算エンジンへ通さない)
+    if (rec.socialInsuranceInputMode !== undefined && rec.socialInsuranceInputMode !== 'total' && rec.socialInsuranceInputMode !== 'breakdown') {
+      throw new ImportError(`${where}の月次収入データのsocialInsuranceInputModeが不正です`);
+    }
+    if (rec.socialInsuranceBreakdown !== undefined) {
+      const breakdown = rec.socialInsuranceBreakdown;
+      if (!isPlainObject(breakdown) || !SOCIAL_INSURANCE_BREAKDOWN_KEYS.every((k) => isNonNegativeFiniteNumber(breakdown[k]))) {
+        throw new ImportError(`${where}の社会保険料の内訳に不正な値(負の数・非数値・項目欠落)が含まれています`);
+      }
     }
   }
   if (!Array.isArray(profile.income.bonuses)) {

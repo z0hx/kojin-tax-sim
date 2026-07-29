@@ -6,6 +6,8 @@ import {
   estimateAnnualIncome,
   isBonusExempt,
   monthsInRange,
+  resolveMonthlySocialInsurance,
+  sumMonthlySocialInsurance,
   sumNonTaxableBenefits,
 } from '../income';
 import type { Yen } from '../types';
@@ -139,5 +141,108 @@ describe('estimateAnnualIncome (FR-03 / W-06)', () => {
     for (const m of result.filledIncome.monthly.slice(6)) {
       expect(m.grossSalary).toBe(400_000);
     }
+  });
+
+  it('直近実績月が内訳入力なら、見込み月も内訳ごと写す(Issue #48)', () => {
+    const breakdown = { healthInsurance: 20_000, nursingCare: 0, pension: 36_000, employmentInsurance: 2_000, other: 0 };
+    const income = {
+      ...emptyIncome(),
+      monthly: [
+        ...monthlyAllYear(400_000, 0)
+          .slice(0, 6)
+          .map((m) => ({ ...m, status: 'actual' as const, socialInsuranceInputMode: 'breakdown' as const, socialInsuranceBreakdown: breakdown })),
+        ...monthlyAllYear(0, 0)
+          .slice(6)
+          .map((m) => ({ ...m, status: 'estimated' as const })),
+      ],
+    };
+
+    const result = estimateAnnualIncome(income, { fillMode: 'lastActual' });
+
+    for (const m of result.filledIncome.monthly.slice(6)) {
+      expect(m.socialInsuranceInputMode).toBe('breakdown');
+      expect(m.socialInsuranceBreakdown).toEqual(breakdown);
+    }
+    expect(sumMonthlySocialInsurance(result.filledIncome)).toBe(58_000 * 12);
+  });
+
+  it('平均で埋める場合は内訳に分解できないため一括入力として入れる(Issue #48)', () => {
+    const income = {
+      ...emptyIncome(),
+      monthly: [
+        ...monthlyAllYear(400_000, 0)
+          .slice(0, 6)
+          .map((m) => ({
+            ...m,
+            status: 'actual' as const,
+            socialInsuranceInputMode: 'breakdown' as const,
+            socialInsuranceBreakdown: { healthInsurance: 20_000, nursingCare: 0, pension: 36_000, employmentInsurance: 2_000, other: 0 },
+          })),
+        ...monthlyAllYear(0, 0)
+          .slice(6)
+          .map((m) => ({ ...m, status: 'estimated' as const, socialInsuranceInputMode: 'breakdown' as const })),
+      ],
+    };
+
+    const result = estimateAnnualIncome(income, { fillMode: 'average' });
+
+    for (const m of result.filledIncome.monthly.slice(6)) {
+      expect(m.socialInsuranceInputMode).toBe('total');
+      expect(m.socialInsuranceBreakdown).toBeUndefined();
+      expect(m.socialInsurance).toBe(58_000);
+    }
+  });
+});
+
+describe('resolveMonthlySocialInsurance (Issue #48 社会保険料の内訳入力)', () => {
+  const base = monthlyAllYear(400_000, 60_000)[0];
+
+  it('既定(モード未指定)では一括入力額を返す', () => {
+    expect(resolveMonthlySocialInsurance(base)).toBe(60_000);
+  });
+
+  it("モードが'breakdown'なら内訳の合計を返す(一括入力額は使わない)", () => {
+    const rec = {
+      ...base,
+      socialInsuranceInputMode: 'breakdown' as const,
+      socialInsuranceBreakdown: { healthInsurance: 20_000, nursingCare: 5_000, pension: 36_000, employmentInsurance: 2_000, other: 1_000 },
+    };
+    expect(resolveMonthlySocialInsurance(rec)).toBe(64_000);
+  });
+
+  it("モードが'breakdown'でも内訳が無ければ一括入力額を返す(取り込んだデータの欠損に備える)", () => {
+    expect(resolveMonthlySocialInsurance({ ...base, socialInsuranceInputMode: 'breakdown' })).toBe(60_000);
+  });
+
+  it('内訳入力の月も社会保険料の年間合計に算入される', () => {
+    const income = {
+      ...emptyIncome(),
+      monthly: monthlyAllYear(400_000, 60_000).map((m, i) =>
+        i === 0
+          ? {
+              ...m,
+              socialInsuranceInputMode: 'breakdown' as const,
+              socialInsuranceBreakdown: { healthInsurance: 20_000, nursingCare: 0, pension: 36_000, employmentInsurance: 2_000, other: 0 },
+            }
+          : m
+      ),
+    };
+    expect(sumMonthlySocialInsurance(income)).toBe(58_000 + 60_000 * 11);
+  });
+
+  it('育休対象月は内訳入力でも0円になる(applyLeavePeriodsが内訳を落とす)', () => {
+    const income = {
+      ...emptyIncome(),
+      monthly: monthlyAllYear(400_000, 60_000).map((m) => ({
+        ...m,
+        socialInsuranceInputMode: 'breakdown' as const,
+        socialInsuranceBreakdown: { healthInsurance: 20_000, nursingCare: 0, pension: 36_000, employmentInsurance: 2_000, other: 0 },
+      })),
+      leavePeriods: [{ type: 'childcare' as const, startYm: '2026-01', endYm: '2026-12', benefitAmount: 0 }],
+    };
+
+    const applied = applyLeavePeriods(income, 2026);
+
+    expect(sumMonthlySocialInsurance(applied)).toBe(0);
   });
 });

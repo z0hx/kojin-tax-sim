@@ -142,4 +142,45 @@ describe('IncomeScreen(S-02)', () => {
       expect(mar.grossSalary).toBe(400_000);
     });
   });
+
+  it('社会保険料を内訳入力に切り替えて入力すると、その合計が社会保険料控除に反映される(Issue #48)', async () => {
+    installStoragePersistMock();
+    const personId = useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    // 1月のみ給与を入力しておき、社会保険料控除の額を内訳だけで動かせる状態にする
+    useAppStore.getState().updateIncome({
+      monthly: Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        status: 'actual' as const,
+        grossSalary: i === 0 ? 400_000 : 0,
+        socialInsurance: 0,
+        isSocialInsuranceExempt: false,
+      })),
+    });
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    const main = await openIncomeScreen();
+
+    await userEvent.selectOptions(within(main).getByLabelText('1月の社会保険料の入力方法'), 'breakdown');
+    for (const [label, amount] of [
+      ['1月の健康保険料', '20000'],
+      ['1月の厚生年金保険料', '36000'],
+      ['1月の雇用保険料', '2000'],
+    ] as const) {
+      const input = await waitFor(() => within(main).getByLabelText(label));
+      await userEvent.clear(input);
+      await userEvent.type(input, amount);
+    }
+
+    await waitFor(() => {
+      const profile = useAppStore.getState().appData!.persons.find((p) => p.id === personId)!.years[2026]!;
+      const jan = profile.income.monthly.find((m) => m.month === 1)!;
+      expect(jan.socialInsuranceInputMode).toBe('breakdown');
+      expect(jan.socialInsuranceBreakdown).toEqual({ healthInsurance: 20_000, nursingCare: 0, pension: 36_000, employmentInsurance: 2_000, other: 0 });
+    });
+    await waitFor(() => {
+      expect(useAppStore.getState().calculationResult!.incomeTax.deductions.socialInsurance).toBe(58_000);
+    });
+  });
 });

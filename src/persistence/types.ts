@@ -1,7 +1,14 @@
 import type { MunicipalityConfig, YearProfile } from '../domain/types';
 
-/** 現行スキーマのバージョン(02仕様書§2.1)。保存データ・エクスポートJSONの`schemaVersion`はこの値になる */
-export const CURRENT_SCHEMA_VERSION = 1;
+/**
+ * 現行スキーマのバージョン(02仕様書§2.1)。保存データ・エクスポートJSONの`schemaVersion`はこの値になる。
+ *
+ * v2(Issue #48): MonthlyRecordに社会保険料の内訳(socialInsuranceInputMode / socialInsuranceBreakdown)を追加した。
+ * フィールド自体は省略可能でv1データはそのまま読めるが、逆方向(v2データを内訳を知らない旧アプリで読む)は
+ * 内訳入力の月で古い一括入力額が黙って使われ、社会保険料控除が実際と食い違う。旧アプリ側が
+ * 「新しいバージョンで作成されたファイル」として取り込みを拒否できるようにするため、バージョンを上げる。
+ */
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /** 人物(世帯メンバー)。02仕様書§2.1 */
 export interface Person {

@@ -1,5 +1,25 @@
 import type { SalaryDeductionTable } from '../taxParams/schema';
-import { type Bonus, type IncomeInput, type LeavePeriod, floorYen, type Yen } from './types';
+import {
+  type Bonus,
+  type IncomeInput,
+  type LeavePeriod,
+  type MonthlyRecord,
+  floorYen,
+  sumSocialInsuranceBreakdown,
+  type Yen,
+} from './types';
+
+/**
+ * Issue #48: その月の社会保険料。内訳入力(socialInsuranceInputMode === 'breakdown')なら内訳の合計、
+ * それ以外(既定・既存データ)なら一括入力額を返す。社会保険料を参照する処理はすべてこの関数を通し、
+ * 「一括入力額」と「内訳の合計」が食い違う状態でどちらが使われるかを一箇所に閉じる。
+ */
+export function resolveMonthlySocialInsurance(rec: MonthlyRecord): number {
+  if (rec.socialInsuranceInputMode === 'breakdown' && rec.socialInsuranceBreakdown) {
+    return sumSocialInsuranceBreakdown(rec.socialInsuranceBreakdown);
+  }
+  return rec.socialInsurance;
+}
 
 function ymToNumber(ym: string): number {
   const [y, m] = ym.split('-').map(Number);
@@ -38,9 +58,19 @@ export function applyLeavePeriods(income: IncomeInput, year: number): IncomeInpu
     for (const m of monthsInRange(leave.startYm, leave.endYm, year)) exemptMonths.add(m);
   }
 
+  // 免除月は内訳入力(Issue #48)であっても社会保険料を0にする。内訳を残したまま一括入力へ倒すのではなく
+  // 内訳自体を落とすことで、resolveMonthlySocialInsuranceがどちらのモードでも0を返すことを保証する
+  // (この結果は生データへ書き戻さないため、育休期間を編集・削除すれば内訳は元のまま復元される)
   const monthly = income.monthly.map((rec) =>
     exemptMonths.has(rec.month)
-      ? { ...rec, grossSalary: 0, socialInsurance: 0, isSocialInsuranceExempt: true }
+      ? {
+          ...rec,
+          grossSalary: 0,
+          socialInsurance: 0,
+          isSocialInsuranceExempt: true,
+          socialInsuranceInputMode: 'total' as const,
+          socialInsuranceBreakdown: undefined,
+        }
       : { ...rec }
   );
 
@@ -57,7 +87,7 @@ export function sumMonthlySalary(income: IncomeInput): Yen {
 }
 
 export function sumMonthlySocialInsurance(income: IncomeInput): Yen {
-  return income.monthly.reduce((sum, rec) => sum + rec.socialInsurance, 0) as Yen;
+  return income.monthly.reduce((sum, rec) => sum + resolveMonthlySocialInsurance(rec), 0) as Yen;
 }
 
 export function sumBonuses(income: IncomeInput): Yen {
@@ -112,15 +142,28 @@ export function estimateAnnualIncome(income: IncomeInput, params: EstimationPara
 
   const lastActual = actualMonths[actualMonths.length - 1];
   const averageGross = actualMonths.reduce((s, m) => s + m.grossSalary, 0) / actualMonths.length;
-  const averageSocial = actualMonths.reduce((s, m) => s + m.socialInsurance, 0) / actualMonths.length;
+  const averageSocial = actualMonths.reduce((s, m) => s + resolveMonthlySocialInsurance(m), 0) / actualMonths.length;
 
   const monthly = income.monthly.map((rec) => {
     if (rec.status === 'actual') return rec;
-    const fillFrom = params.fillMode === 'lastActual' ? lastActual : { grossSalary: averageGross, socialInsurance: averageSocial };
+    // Issue #48: 'lastActual'は直近実績月の社会保険料の入力方法(一括/内訳)ごと写す。'average'は
+    // 月をまたいだ平均値であり内訳に分解できないため、一括入力の見込み額として入れる
+    // (内訳が残っていると合計の方が使われず混乱するので、内訳は落とす)
+    if (params.fillMode === 'lastActual') {
+      return {
+        ...rec,
+        grossSalary: Math.round(lastActual.grossSalary),
+        socialInsurance: lastActual.socialInsurance,
+        socialInsuranceInputMode: lastActual.socialInsuranceInputMode,
+        socialInsuranceBreakdown: lastActual.socialInsuranceBreakdown ? { ...lastActual.socialInsuranceBreakdown } : undefined,
+      };
+    }
     return {
       ...rec,
-      grossSalary: Math.round(fillFrom.grossSalary),
-      socialInsurance: Math.round(fillFrom.socialInsurance),
+      grossSalary: Math.round(averageGross),
+      socialInsurance: Math.round(averageSocial),
+      socialInsuranceInputMode: 'total' as const,
+      socialInsuranceBreakdown: undefined,
     };
   });
 
