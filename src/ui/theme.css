@@ -52,3 +52,27 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
 }
+
+/* FR-20結果出力(印刷): ダークモードでも黒地に印刷されないよう、印刷時は常に明色に固定する。
+   ナビゲーション等の操作要素は紙面に不要なため.no-printで非表示にする(免責表示は対象外) */
+@media print {
+  :root {
+    --color-bg: #ffffff;
+    --color-fg: #000000;
+    --color-border: #999999;
+    --color-muted: #444444;
+    --color-danger: #c0392b;
+    --color-danger-bg: #fdecea;
+    --color-selected-bg: #e8f0fe;
+    --color-warning: #8a6100;
+    --color-warning-bg: #fff3cd;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+}

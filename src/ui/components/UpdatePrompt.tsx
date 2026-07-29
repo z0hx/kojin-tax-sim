@@ -23,6 +23,7 @@ export function UpdatePrompt() {
   return (
     <div
       role="status"
+      className="no-print"
       style={{
         position: 'sticky',
         top: 0,

@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { WarningBannerList } from '../components/WarningBannerList';
+import { PrintButton } from '../components/PrintButton';
 import { daysSince } from '../dateUtils';
 import { compareWithActuals } from '../../domain/actuals';
 
@@ -78,7 +79,7 @@ export function DashboardScreen() {
       style={{ marginTop: '1rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem' }}
     >
       {lastError.message}
-      <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
+      <button className="no-print" type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
         閉じる
       </button>
     </div>
@@ -124,9 +125,9 @@ export function DashboardScreen() {
     <main style={{ maxWidth: 720, margin: '2rem auto', padding: '0 1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.3rem' }}>
-          {profile.year}年分(令和{toReiwaYear(profile.year)}年分)
+          {person.displayName} {profile.year}年分(令和{toReiwaYear(profile.year)}年分)
         </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <label>
             年度切替{' '}
             <select
@@ -155,6 +156,7 @@ export function DashboardScreen() {
           >
             {nextYear}年分を追加
           </button>
+          <PrintButton />
         </div>
       </div>
 
@@ -166,7 +168,7 @@ export function DashboardScreen() {
           style={{ marginTop: '1rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem 0.8rem', borderRadius: 6 }}
         >
           ⚠ 検算(実績値との突合)で誤差±1%を超える項目があります。本アプリの出力を実際の申告・納税の意思決定に使用しないでください。{' '}
-          <button type="button" onClick={() => navigate('actuals')}>
+          <button className="no-print" type="button" onClick={() => navigate('actuals')}>
             検算画面で確認
           </button>
         </p>

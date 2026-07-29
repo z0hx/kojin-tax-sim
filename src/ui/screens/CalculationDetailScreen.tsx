@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
+import { PrintButton } from '../components/PrintButton';
 import type { TraceStep } from '../../domain/types';
 
 const PERCENT_KEYS = new Set(['marginalRate']);
@@ -31,11 +32,11 @@ export function CalculationDetailScreen() {
   const person = appData?.persons.find((p) => p.id === activePersonId);
   const profile = person && activeYear !== null ? person.years[activeYear] : undefined;
 
-  if (!profile) {
+  if (!person || !profile) {
     return (
       <main style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button type="button" onClick={() => navigate('main')}>
+          <button className="no-print" type="button" onClick={() => navigate('main')}>
             ← 戻る
           </button>
           <h1 style={{ margin: 0 }}>計算明細</h1>
@@ -56,7 +57,7 @@ export function CalculationDetailScreen() {
       style={{ marginTop: '1rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem' }}
     >
       {lastError.message}
-      <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
+      <button className="no-print" type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
         閉じる
       </button>
     </div>
@@ -66,7 +67,7 @@ export function CalculationDetailScreen() {
     return (
       <main style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button type="button" onClick={() => navigate('main')}>
+          <button className="no-print" type="button" onClick={() => navigate('main')}>
             ← 戻る
           </button>
           <h1 style={{ margin: 0 }}>計算明細</h1>
@@ -82,10 +83,13 @@ export function CalculationDetailScreen() {
   return (
     <main style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <button type="button" onClick={() => navigate('main')}>
+        <button className="no-print" type="button" onClick={() => navigate('main')}>
           ← 戻る
         </button>
-        <h1 style={{ margin: 0 }}>計算明細 ({profile.year}年分)</h1>
+        <h1 style={{ margin: 0 }}>
+          計算明細 ({person.displayName} {profile.year}年分)
+        </h1>
+        <PrintButton style={{ marginLeft: 'auto' }} />
       </div>
       {errorBanner}
 

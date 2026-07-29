@@ -219,4 +219,33 @@ describe('DashboardScreen(S-01)', () => {
     await userEvent.click(screen.getByRole('button', { name: '閉じる' }));
     expect(useAppStore.getState().lastError).toBeNull();
   });
+
+  it('印刷ボタンでwindow.print()が呼ばれる(FR-20完了条件)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    const printSpy = vi.fn();
+    vi.stubGlobal('print', printSpy);
+
+    await renderAppAndWaitLoaded();
+    await waitFor(() => expect(screen.getByText(/ふるさと納税 上限額/)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: '印刷' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('印刷対象外の要素(ヘッダー・年度切替コントロール)にno-printクラスが付与される(FR-20完了条件)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    await waitFor(() => expect(screen.getByText(/ふるさと納税 上限額/)).toBeInTheDocument());
+
+    expect(screen.getByRole('banner')).toHaveClass('no-print');
+    expect(screen.getByRole('button', { name: '印刷' }).closest('.no-print')).not.toBeNull();
+  });
 });
