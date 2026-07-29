@@ -56,7 +56,7 @@ export function makeProfile(overrides: Partial<YearProfile> = {}): YearProfile {
       isSingleParent: false,
       disabilityDeductions: [],
     },
-    furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9 },
+    furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9, donations: [] },
     ...overrides,
   };
 }

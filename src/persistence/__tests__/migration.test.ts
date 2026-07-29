@@ -23,15 +23,29 @@ describe('migrate (T-27 不正なJSON)', () => {
   });
 
   it('正常なAppDataはそのまま返る(移行不要)', () => {
-    const data = emptyAppData();
+    const data = { ...emptyAppData(), schemaVersion: CURRENT_SCHEMA_VERSION };
     expect(migrate(data)).toEqual(data);
   });
 });
 
 describe('migrate (T-28 移行フィクスチャ)', () => {
   it('現行バージョンと同じデータは変更されずに返る', () => {
-    const fixture = { schemaVersion: 1, persons: [], activePersonId: null, appSettings: { theme: 'system', furusatoCapMode: 'standard', lastExportedAt: null, onboardingCompleted: false, taxParamsVerifiedAt: {} } };
+    const fixture = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      persons: [],
+      activePersonId: null,
+      appSettings: { theme: 'system', furusatoCapMode: 'standard', lastExportedAt: null, onboardingCompleted: false, taxParamsVerifiedAt: {} },
+    };
     expect(migrate(fixture)).toEqual(fixture);
+  });
+
+  it('v1→v2: furusato.donationsが無い旧データはschemaVersion=2かつdonations=[]へ移行される(FR-21)', () => {
+    const legacyProfile = validYearProfile();
+    const data = { schemaVersion: 1, persons: [personWithYear(legacyProfile)], activePersonId: 'p1', appSettings: {} };
+    const migrated = migrate(data);
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.persons[0].years[2026].furusato.donations).toEqual([]);
+    expect(migrated.persons[0].years[2026].furusato.donatedAmount).toBe(0);
   });
 });
 

@@ -159,10 +159,21 @@ export interface HousingLoanInput {
 // ふるさと納税
 // ---------------------------------------------------------------------------
 
+/** FR-21: 実際に寄附した自治体・金額・日付の記録 */
+export interface DonationRecord {
+  id: string;
+  municipalityName: string;
+  amount: number;
+  date: string; // 'YYYY-MM-DD'
+}
+
 export interface FurusatoInput {
   method: 'oneStop' | 'taxReturn';
   donatedAmount: number;
   safetyRatio: number;
+  /** donatedAmountはこの配列の合計から導出する(store.recordDonation/removeDonation参照)。単一の実績値を
+   *  別途手入力する経路は設けない(合計と内訳が食い違う状態を作らないため) */
+  donations: DonationRecord[];
 }
 
 // ---------------------------------------------------------------------------

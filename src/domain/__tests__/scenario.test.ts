@@ -173,9 +173,9 @@ describe('applyScenarioOverride(Issue #13 FR-16シナリオ比較)', () => {
   });
 
   it('donationAmountOverride: furusato.donatedAmountを上書きする', () => {
-    const base = makeProfile({ furusato: { method: 'oneStop', donatedAmount: 10_000, safetyRatio: 0.9 } });
+    const base = makeProfile({ furusato: { method: 'oneStop', donatedAmount: 10_000, safetyRatio: 0.9, donations: [] } });
     const result = applyScenarioOverride(base, { label: '寄附額変更', donationAmountOverride: 50_000 as Yen });
-    expect(result.furusato).toEqual({ method: 'oneStop', donatedAmount: 50_000, safetyRatio: 0.9 });
+    expect(result.furusato).toEqual({ method: 'oneStop', donatedAmount: 50_000, safetyRatio: 0.9, donations: [] });
   });
 
   it('複数のoverrideを同時に適用できる', () => {

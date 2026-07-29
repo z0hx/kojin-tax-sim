@@ -236,16 +236,19 @@ describe('useAppStore', () => {
   });
 
   describe('copyYearFromPrevious', () => {
-    it('前年データがあればコピーし、寄附額のみ0にリセットする', async () => {
+    it('前年データがあればコピーし、寄附額・寄附実績のみリセットする(FR-21: 実績は年度ごとの記録)', async () => {
       store.getState().addPerson('本人', '#111111');
       await store.getState().createBlankYear(2025);
       store.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
-      store.getState().updateFurusatoInput({ donatedAmount: 50_000 });
+      store.getState().recordDonation({ municipalityName: '横浜市', amount: 50_000, date: '2025-06-01' });
 
       await store.getState().copyYearFromPrevious(2026);
       const profile = store.getState().appData!.persons[0].years[2026];
       expect(profile.income.otherSalaryIncome).toBe(6_000_000);
       expect(profile.furusato.donatedAmount).toBe(0);
+      expect(profile.furusato.donations).toEqual([]);
+      // 前年分の実績自体は保持される(リセットされるのは新年度分のみ)
+      expect(store.getState().appData!.persons[0].years[2025].furusato.donations).toHaveLength(1);
     });
 
     it('前年データが無ければcreateBlankYear相当にフォールバックする(クラッシュしない)', async () => {
@@ -525,6 +528,37 @@ describe('useAppStore', () => {
       store.getState().linkSpouseIncome(selfId);
       const after = store.getState().appData!.persons.find((p) => p.id === selfId)!.years[2026]!.deductions.spouse;
       expect(after).toEqual(before);
+    });
+  });
+
+  describe('recordDonation/removeDonation(Issue #17完了条件: 追加すると残枠表示が更新される)', () => {
+    it('recordDonationで実績を追記し、donatedAmountが合計額に更新される', async () => {
+      store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
+
+      store.getState().recordDonation({ municipalityName: '横浜市', amount: 10_000, date: '2026-06-01' });
+      store.getState().recordDonation({ municipalityName: '川崎市', amount: 20_000, date: '2026-07-01' });
+
+      const profile = store.getState().appData!.persons[0].years[2026];
+      expect(profile.furusato.donations).toHaveLength(2);
+      expect(profile.furusato.donatedAmount).toBe(30_000);
+      const limit = store.getState().calculationResult!.furusato.limitAmount;
+      expect(store.getState().calculationResult!.furusato.breakdown.donation).toBeLessThanOrEqual(limit);
+    });
+
+    it('removeDonationで実績を削除し、donatedAmountが再計算される', async () => {
+      store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().recordDonation({ municipalityName: '横浜市', amount: 10_000, date: '2026-06-01' });
+      store.getState().recordDonation({ municipalityName: '川崎市', amount: 20_000, date: '2026-07-01' });
+
+      const idToRemove = store.getState().appData!.persons[0].years[2026].furusato.donations[0].id;
+      store.getState().removeDonation(idToRemove);
+
+      const profile = store.getState().appData!.persons[0].years[2026];
+      expect(profile.furusato.donations).toHaveLength(1);
+      expect(profile.furusato.donatedAmount).toBe(20_000);
     });
   });
 

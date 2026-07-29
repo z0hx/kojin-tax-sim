@@ -125,6 +125,17 @@ export function Header() {
               role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
+                navigate('donations');
+              }}
+              style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}
+            >
+              寄附実績
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
                 navigate('scenarioComparison');
               }}
               style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.4rem 0.75rem', textAlign: 'left' }}

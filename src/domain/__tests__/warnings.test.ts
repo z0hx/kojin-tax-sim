@@ -61,7 +61,7 @@ describe('W-04: 医療費控除ありでワンストップ特例を選択', () =
     expect(checkW04(ctx)).not.toBeNull();
   });
   it('taxReturnを選択していれば発火しない', () => {
-    const profile = makeProfile({ furusato: { method: 'taxReturn', donatedAmount: 0, safetyRatio: 0.9 } });
+    const profile = makeProfile({ furusato: { method: 'taxReturn', donatedAmount: 0, safetyRatio: 0.9, donations: [] } });
     profile.deductions.medical = { paid: 300_000, reimbursed: 0, selfMedication: 0, mode: 'medical' };
     const ctx = buildContext(profile);
     expect(checkW04(ctx)).toBeNull();
