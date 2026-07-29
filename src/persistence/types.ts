@@ -1,4 +1,4 @@
-import type { FurusatoCapMode, MunicipalityConfig, YearProfile } from '../domain/types';
+import type { MunicipalityConfig, YearProfile } from '../domain/types';
 
 /** 現行スキーマのバージョン(02仕様書§2.1)。保存データ・エクスポートJSONの`schemaVersion`はこの値になる */
 export const CURRENT_SCHEMA_VERSION = 1;
@@ -17,12 +17,18 @@ export interface Person {
   };
 }
 
+/**
+ * アプリ全体の設定。人物・年度に依存しない値のみを持つ。
+ *
+ * かつて theme / furusatoCapMode / onboardingCompleted / taxParamsVerifiedAt を持っていたが、
+ * いずれも読み手が存在しないまま残っていたため削除した(#41)。
+ * - theme: 配色は ui/theme.css の prefers-color-scheme のみで決まる
+ * - furusatoCapMode: 計算明細画面が standard/conservative を常に併記するため設定値を読む箇所がない
+ * - onboardingCompleted: 画面分岐は persons.length === 0 で判定している
+ * - taxParamsVerifiedAt: 年分ごとの最終確認日は税制パラメータJSONの meta.verifiedAt が正
+ */
 export interface AppSettings {
-  theme: 'light' | 'dark' | 'system';
-  furusatoCapMode: FurusatoCapMode;
   lastExportedAt: string | null;
-  onboardingCompleted: boolean;
-  taxParamsVerifiedAt: Record<number, string>;
 }
 
 /** IndexedDBに保存されるルート。エクスポートJSONもこの形(02仕様書§2.1) */
@@ -37,11 +43,7 @@ export interface AppData {
 
 export function defaultAppSettings(): AppSettings {
   return {
-    theme: 'system',
-    furusatoCapMode: 'standard',
     lastExportedAt: null,
-    onboardingCompleted: false,
-    taxParamsVerifiedAt: {},
   };
 }
 

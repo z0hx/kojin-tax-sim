@@ -9,7 +9,6 @@ import type {
   ActualValues,
   DeductionInput,
   DonationRecord,
-  FurusatoCapMode,
   FurusatoInput,
   HousingLoanInput,
   IncomeInput,
@@ -20,14 +19,15 @@ import type {
 export type AppError = ImportError | CryptoError | ValidationError | StorageError | TaxParamsError;
 
 /** engine.buildCalculationResultの実際の戻り値の形。03詳細設計書§4.1は2つの完全なCalculationResultを
- *  想定しているが、実装済みのengine.tsはstandard/conservativeでfurusatoの上限額系フィールドのみが異なる
- *  単一オブジェクトを返す(engine.ts参照)。engine.ts自体は本Issueの範囲外のため、ここではその実際の型に合わせる。
+ *  想定しているが、engine.tsはstandard/conservativeでfurusatoの上限額系フィールドのみが異なる
+ *  単一オブジェクトを返すため、ここではその実際の型に合わせる。
  *
  *  注意: `furusatoConservative`のうち実際にconservativeモードの値なのは`limitAmount`/`recommendedAmount`のみ。
  *  `specialCapReached`/`breakdown`はstandardモードの値のコピーであり、conservativeモードでの実際の値ではない
- *  (engine.ts の buildCalculationResult 実装がそうなっているため)。S-05 CapModeComparisonToggle 実装時は注意。
+ *  (engine.ts の buildCalculationResult 実装がそうなっているため)。両モードの内訳まで比較する画面を作る場合は、
+ *  engine側で conservative の完全なスナップショットを返すところから直す必要がある。
  *
- *  `confidenceRatio`は収入見込みの確定率(実績月数/12, FR-03/W-06と同じ値)。S-02収入入力画面向けに公開している。
+ *  `confidenceRatio`は収入見込みの確定率(実績月数/12, FR-03/W-06と同じ値)。収入入力画面向けに公開している。
  */
 export type StoreCalculationResult = CalculationResult & { furusatoConservative: CalculationResult['furusato']; confidenceRatio: number };
 
@@ -87,14 +87,13 @@ export interface AppStoreActions {
   /** 人物を複製する(新しいidで年度データを含めて複製)。activePersonIdは変更しない。戻り値は複製先のid */
   duplicatePerson(personId: string): string;
   deletePerson(personId: string): void;
-  /** S-12オンボーディング完了処理。人物を作成(自治体の既定値込み)し、appSettings.onboardingCompletedをtrueにして
-   *  即時保存する(初回の書き込みのためデバウンスに任せない)。戻り値は新規人物のid */
+  /** S-12オンボーディング完了処理。人物を作成(自治体の既定値込み)し、即時保存する
+   *  (初回の書き込みのためデバウンスに任せない)。戻り値は新規人物のid */
   completeOnboarding(displayName: string, color: string, municipality: MunicipalityConfig): Promise<string>;
   /** 削除前にその人物単体のデータを非暗号化でエクスポート・ダウンロードさせ、成功した場合のみ削除する。
    *  エクスポートが失敗・キャンセルされた場合は削除せずlastErrorをセットして終了する(S-10要件)。 */
   deletePersonWithBackup(personId: string): Promise<void>;
   setSafetyRatio(ratio: number): void;
-  setCapMode(mode: FurusatoCapMode): void;
   exportData(opts: ExportOptions): Promise<void>;
   previewImport(file: File, mode: ImportMode, passphrase?: string): Promise<void>;
   commitImport(mode: ImportMode): Promise<void>;

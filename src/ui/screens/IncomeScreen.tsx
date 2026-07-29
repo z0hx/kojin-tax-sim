@@ -15,8 +15,8 @@ function parseNonNegativeInt(input: string): number | null {
 /**
  * S-02 収入入力画面(02仕様書§5, FR-02〜FR-04)。
  * activeYearがnull(=この人物にまだ年度データが無い)の場合は年度作成のブートストラップ導線を出す。
- * これが救済するのは「人物の初年度作成」のみで、既に年度データを持つ人物の次年度作成(年次ロールオーバー)は
- * 対象外(ダッシュボード実装Issueで年度切替UIとして別途対応する想定。詳細はIssue #6 PR説明を参照)。
+ * これが救済するのは「人物の初年度作成」のみ。既に年度データを持つ人物の次年度作成(年次ロールオーバー)は
+ * ダッシュボードの年度切替UIが担う。
  */
 export function IncomeScreen() {
   const navigate = useNavigation((s) => s.navigate);
@@ -44,7 +44,7 @@ export function IncomeScreen() {
     setYearError(null);
     setCreating(true);
     try {
-      // 02仕様書§2.4.2: 初回の年度データ保存時にも永続化を要求する(オンボーディング完了時とは別経路。Issue #6の申し送り対応)
+      // 02仕様書§2.4.2: 初回の年度データ保存時にも永続化を要求する(オンボーディング完了時とは別経路)
       await createBlankYear(year);
       await requestPersistence();
     } finally {

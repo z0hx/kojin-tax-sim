@@ -87,7 +87,6 @@ describe('App(人物プロファイル管理)', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: /本人/ })).toBeInTheDocument());
     expect(useAppStore.getState().onboardingRequired).toBe(false);
-    expect(useAppStore.getState().appData!.appSettings.onboardingCompleted).toBe(true);
     const person = useAppStore.getState().appData!.persons[0];
     expect(person.defaults.municipality.prefectureName).toBe('神奈川県');
     expect(person.defaults.municipality.name).toBe('横浜市');

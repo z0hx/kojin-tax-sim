@@ -27,8 +27,8 @@ function parseYen(input: string): number | null {
 /**
  * S-02の12ヶ月グリッド(02仕様書§5)。
  * 育休対象月かどうかは保存済みのisSocialInsuranceExemptを信用せず、常にleavePeriodsから導出して表示する
- * (設計上の理由: applyLeavePeriodsの結果を生データへ書き戻すと、育休期間を後から編集/削除した際に
- *  対象月がロックされたまま戻らなくなる不具合を生むため。詳細はIssue #6 PR説明を参照)。
+ * (設計上の理由: applyLeavePeriodsの結果を生データへ書き戻すと、育休期間を後から編集/削除しても
+ *  書き戻された免除フラグが残り、対象月がロックされたまま戻らなくなるため)。
  * 実際の税計算はengine.calcSnapshotが都度applyLeavePeriodsを適用するため、この画面が生データへ
  * 書き戻さなくても計算結果は正しい。
  */

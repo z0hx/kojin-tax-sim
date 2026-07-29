@@ -34,7 +34,7 @@ describe('migrate (T-28 移行フィクスチャ)', () => {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       persons: [],
       activePersonId: null,
-      appSettings: { theme: 'system', furusatoCapMode: 'standard', lastExportedAt: null, onboardingCompleted: false, taxParamsVerifiedAt: {} },
+      appSettings: { lastExportedAt: null },
     };
     expect(migrate(fixture)).toEqual(fixture);
   });
