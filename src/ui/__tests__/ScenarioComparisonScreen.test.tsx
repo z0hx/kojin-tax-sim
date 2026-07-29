@@ -69,6 +69,18 @@ async function setupProfile() {
   await flushNow();
 }
 
+/** 2025年分(給与600万円)と2026年分(収入0円、育休相当)に各30,000円の寄附予定を持つ人物を作る */
+async function setupTwoYearProfiles() {
+  useAppStore.getState().addPerson('本人', '#111111');
+  await useAppStore.getState().createBlankYear(2025);
+  useAppStore.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
+  useAppStore.getState().recordDonation({ municipalityName: '横浜市', amount: 30_000, date: '2025-06-01' });
+  await flushNow();
+  await useAppStore.getState().createBlankYear(2026);
+  useAppStore.getState().recordDonation({ municipalityName: '横浜市', amount: 30_000, date: '2026-06-01' });
+  await flushNow();
+}
+
 describe('ScenarioComparisonScreen(S-07)', () => {
   it('人物の年度データが無い場合は収入入力画面への案内が表示される', async () => {
     installStoragePersistMock();
@@ -195,8 +207,20 @@ describe('ScenarioComparisonScreen(S-07)', () => {
   });
 
   describe('複数年配分の最適化(Issue #18完了条件: 2年分の配分シミュレーション結果が比較表示される)', () => {
+    /** 配分対象は「現在の暦年以降」で決まるため、実時刻に依存しないようDateのみを固定する
+     *  (setTimeoutまで固定するとfake-indexeddbやuserEventが解決しなくなるためtoFakeを絞る)。 */
+    function freezeYear(year: number): void {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(`${year}-06-01T00:00:00+09:00`));
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('年度データが1年分しかない場合は案内メッセージを表示する', async () => {
-      await setupProfile();
+      await setupProfile(); // 2026年分のみ
+      freezeYear(2026);
       await renderAppAndWaitLoaded();
       const main = await openScenarioComparisonScreen();
 
@@ -205,14 +229,8 @@ describe('ScenarioComparisonScreen(S-07)', () => {
 
     it('2年分の年度データがある場合、上限額の大きい年へ寄附予定額が優先配分される', async () => {
       installStoragePersistMock();
-      useAppStore.getState().addPerson('本人', '#111111');
-      await useAppStore.getState().createBlankYear(2025);
-      useAppStore.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
-      useAppStore.getState().recordDonation({ municipalityName: '横浜市', amount: 30_000, date: '2025-06-01' });
-      await flushNow();
-      await useAppStore.getState().createBlankYear(2026); // 収入0円のまま(育休相当の低所得年を模する)
-      useAppStore.getState().recordDonation({ municipalityName: '横浜市', amount: 30_000, date: '2026-06-01' });
-      await flushNow();
+      await setupTwoYearProfiles();
+      freezeYear(2025); // 2025年分・2026年分がいずれも「これから寄附できる年」となる時点
 
       await renderAppAndWaitLoaded();
       const main = await openScenarioComparisonScreen();
@@ -233,6 +251,21 @@ describe('ScenarioComparisonScreen(S-07)', () => {
       expect(suggested2025).toBe(60_000);
       expect(suggested2026).toBe(0);
       expect(within(main).getByText(/上限額が最も大きい2025年分/)).toBeInTheDocument();
+      expect(within(main).queryByText(/配分の対象外としています/)).not.toBeInTheDocument();
+    });
+
+    it('過去年度は配分の対象外になり、対象が2年分に満たなければ案内メッセージへフォールバックする(#40)', async () => {
+      installStoragePersistMock();
+      await setupTwoYearProfiles();
+      freezeYear(2026); // 2025年分は寄附の受付が終了している時点
+
+      await renderAppAndWaitLoaded();
+      const main = await openScenarioComparisonScreen();
+
+      expect(within(main).getByText('2025年分は寄附の受付が終了しているため、配分の対象外としています。')).toBeInTheDocument();
+      // 上限額が最大なのは2025年分だが、過去年度への配分は提案しない
+      expect(within(main).queryByText(/上限額が最も大きい2025年分/)).not.toBeInTheDocument();
+      expect(within(main).getByText(/2026年分以降の年度が2年分以上必要です/)).toBeInTheDocument();
     });
   });
 });
