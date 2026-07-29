@@ -65,6 +65,11 @@ export interface AppStoreActions {
   /** ActualValues(検算モード、FR-17)もHousingLoanInputと同様YearProfile上optionalなため、
    *  完全なオブジェクトまたはnull(実績値の入力を取り消す)を受け取る */
   updateActuals(actuals: ActualValues | null): void;
+  /** 世帯ビュー(S-11、FR-29)。指定した人物(spouseId)の合計所得金額を、現在アクティブな人物の
+   *  アクティブ年度のdeductions.spouse.totalIncomeへコピーする。activeYearが無い場合、または
+   *  spouseIdがアクティブな人物自身を指す場合は何もしない。対象年のYearProfileまたはtaxParamsが
+   *  無く所得が算出できない場合はlastErrorをセットする(何もコピーしない)。 */
+  linkSpouseIncome(spouseId: string): void;
   updateFurusatoInput(patch: Partial<FurusatoInput>): void;
   updateMunicipality(patch: Partial<MunicipalityConfig>): void;
   /** 新規人物を追加し、その人物に切り替える。municipalityを省略した場合は標準税率(既定値)を使う。戻り値は新規人物のid */

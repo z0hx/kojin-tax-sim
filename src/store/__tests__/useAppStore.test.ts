@@ -460,6 +460,74 @@ describe('useAppStore', () => {
     });
   });
 
+  describe('linkSpouseIncome(Issue #14 世帯ビュー・FR-29)', () => {
+    it('指定した人物の合計所得金額をアクティブな人物のdeductions.spouse.totalIncomeへコピーする', async () => {
+      const selfId = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      void selfId;
+
+      const spouseId = store.getState().addPerson('配偶者', '#222222');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateIncome({ otherSalaryIncome: 1_000_000 });
+      const spouseTotalIncome = store.getState().calculationResult!.income.totalIncome;
+      await flushNow();
+
+      await store.getState().setActivePerson(selfId);
+      store.getState().linkSpouseIncome(spouseId);
+
+      const profile = store.getState().appData!.persons.find((p) => p.id === selfId)!.years[2026]!;
+      expect(profile.deductions.spouse?.totalIncome).toBe(spouseTotalIncome);
+    });
+
+    it('既存のisElderlyフラグは保持される', async () => {
+      const selfId = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateDeductions({ spouse: { totalIncome: 0, isElderly: true } });
+
+      const spouseId = store.getState().addPerson('配偶者', '#222222');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateIncome({ otherSalaryIncome: 1_000_000 });
+      await flushNow();
+
+      await store.getState().setActivePerson(selfId);
+      store.getState().linkSpouseIncome(spouseId);
+
+      const profile = store.getState().appData!.persons.find((p) => p.id === selfId)!.years[2026]!;
+      expect(profile.deductions.spouse?.isElderly).toBe(true);
+    });
+
+    it('対象人物にactiveYearのYearProfileが無い場合は何もせずlastErrorをセットする(クラッシュしない)', async () => {
+      const selfId = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      const spouseId = store.getState().addPerson('配偶者(年度未作成)', '#222222');
+      await store.getState().setActivePerson(selfId);
+
+      const before = store.getState().appData!.persons.find((p) => p.id === selfId)!.years[2026]!.deductions.spouse;
+      store.getState().linkSpouseIncome(spouseId);
+      const after = store.getState().appData!.persons.find((p) => p.id === selfId)!.years[2026]!.deductions.spouse;
+      expect(after).toEqual(before);
+      expect(store.getState().lastError?.message).toContain('2026年分のデータが無い');
+    });
+
+    it('activeYearがnullの場合は何もしない(クラッシュしない)', () => {
+      store.getState().addPerson('本人', '#111111');
+      const spouseId = store.getState().addPerson('配偶者', '#222222');
+      expect(() => store.getState().linkSpouseIncome(spouseId)).not.toThrow();
+    });
+
+    it('アクティブな人物自身のidを渡した場合は何もしない(自分の所得を自分に連携しない)', async () => {
+      const selfId = store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateIncome({ otherSalaryIncome: 3_000_000 });
+      await flushNow();
+
+      const before = store.getState().appData!.persons.find((p) => p.id === selfId)!.years[2026]!.deductions.spouse;
+      store.getState().linkSpouseIncome(selfId);
+      const after = store.getState().appData!.persons.find((p) => p.id === selfId)!.years[2026]!.deductions.spouse;
+      expect(after).toEqual(before);
+    });
+  });
+
   describe('setSafetyRatio', () => {
     it('推奨額がsafetyRatioに応じて変わる', async () => {
       store.getState().addPerson('本人', '#111111');

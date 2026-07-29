@@ -14,6 +14,7 @@ import { CalculationDetailScreen } from './ui/screens/CalculationDetailScreen';
 import { SimulationScreen } from './ui/screens/SimulationScreen';
 import { ActualsScreen } from './ui/screens/ActualsScreen';
 import { ScenarioComparisonScreen } from './ui/screens/ScenarioComparisonScreen';
+import { HouseholdViewScreen } from './ui/screens/HouseholdViewScreen';
 
 export default function App() {
   const isLoading = useAppStore((s) => s.isLoading);
@@ -55,6 +56,8 @@ export default function App() {
         <ActualsScreen />
       ) : screen === 'scenarioComparison' ? (
         <ScenarioComparisonScreen />
+      ) : screen === 'householdView' ? (
+        <HouseholdViewScreen />
       ) : (
         <DashboardScreen />
       )}
