@@ -46,9 +46,18 @@ describe('migrate (T-28 移行フィクスチャ)', () => {
     expect(() => migrate(data)).toThrow(ImportError);
   });
 
-  it('現行スキーマは1(emptyAppDataが書き込む値と一致する)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(1);
+  it('現行スキーマは2(emptyAppDataが書き込む値と一致する)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(2);
     expect(emptyAppData().schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('v1データはv2へ移行され、内容は書き換えられない(Issue #48: 内訳フィールドは省略可のため値の変換は不要)', () => {
+    const v1 = { schemaVersion: 1, persons: [personWithYear(validYearProfile())], activePersonId: 'p1', appSettings: { lastExportedAt: null } };
+
+    const migrated = migrate(v1);
+
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.persons).toEqual(v1.persons);
   });
 
   it('schemaVersionが0など移行手順の無い過去バージョンは例外になる', () => {
@@ -120,6 +129,45 @@ describe('migrate (Medium#7是正: YearProfileの数値検証)', () => {
     const corrupted = validYearProfile();
     corrupted.furusato.donatedAmount = -1000;
     const data = { schemaVersion: 1, persons: [personWithYear(corrupted)], activePersonId: 'p1', appSettings: {} };
+    expect(() => migrate(data)).toThrow(ImportError);
+  });
+
+  it('社会保険料の内訳(Issue #48)が正常なデータは通過する', () => {
+    const profile = validYearProfile() as unknown as { income: { monthly: Record<string, unknown>[] } };
+    profile.income.monthly[0] = {
+      ...profile.income.monthly[0],
+      socialInsuranceInputMode: 'breakdown',
+      socialInsuranceBreakdown: { healthInsurance: 20_000, nursingCare: 0, pension: 36_000, employmentInsurance: 2_000, other: 0 },
+    };
+    const data = { schemaVersion: 2, persons: [personWithYear(profile)], activePersonId: 'p1', appSettings: {} };
+    expect(() => migrate(data)).not.toThrow();
+  });
+
+  it('社会保険料の内訳に負の値が含まれる場合は例外を投げる', () => {
+    const profile = validYearProfile() as unknown as { income: { monthly: Record<string, unknown>[] } };
+    profile.income.monthly[0] = {
+      ...profile.income.monthly[0],
+      socialInsuranceInputMode: 'breakdown',
+      socialInsuranceBreakdown: { healthInsurance: -1, nursingCare: 0, pension: 0, employmentInsurance: 0, other: 0 },
+    };
+    const data = { schemaVersion: 2, persons: [personWithYear(profile)], activePersonId: 'p1', appSettings: {} };
+    expect(() => migrate(data)).toThrow(ImportError);
+  });
+
+  it('社会保険料の内訳の項目が欠落している場合は例外を投げる', () => {
+    const profile = validYearProfile() as unknown as { income: { monthly: Record<string, unknown>[] } };
+    profile.income.monthly[0] = {
+      ...profile.income.monthly[0],
+      socialInsuranceBreakdown: { healthInsurance: 20_000, pension: 36_000 },
+    };
+    const data = { schemaVersion: 2, persons: [personWithYear(profile)], activePersonId: 'p1', appSettings: {} };
+    expect(() => migrate(data)).toThrow(ImportError);
+  });
+
+  it('socialInsuranceInputModeが未知の値の場合は例外を投げる', () => {
+    const profile = validYearProfile() as unknown as { income: { monthly: Record<string, unknown>[] } };
+    profile.income.monthly[0] = { ...profile.income.monthly[0], socialInsuranceInputMode: 'itemized' };
+    const data = { schemaVersion: 2, persons: [personWithYear(profile)], activePersonId: 'p1', appSettings: {} };
     expect(() => migrate(data)).toThrow(ImportError);
   });
 

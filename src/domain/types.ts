@@ -52,12 +52,49 @@ export type FurusatoCapMode = 'standard' | 'conservative';
 // 収入 (02仕様書§2.2)
 // ---------------------------------------------------------------------------
 
+/**
+ * 社会保険料の内訳(Issue #48)。給与明細の項目名に合わせる。
+ * 40歳未満は介護保険料が無い等、該当しない項目は0円のままにする運用。
+ */
+export interface SocialInsuranceBreakdown {
+  healthInsurance: number; // 健康保険料
+  nursingCare: number; // 介護保険料(40歳以上)
+  pension: number; // 厚生年金保険料
+  employmentInsurance: number; // 雇用保険料
+  other: number; // その他(厚生年金基金など)
+}
+
+export const SOCIAL_INSURANCE_ITEMS: { key: keyof SocialInsuranceBreakdown; label: string }[] = [
+  { key: 'healthInsurance', label: '健康保険料' },
+  { key: 'nursingCare', label: '介護保険料' },
+  { key: 'pension', label: '厚生年金保険料' },
+  { key: 'employmentInsurance', label: '雇用保険料' },
+  { key: 'other', label: 'その他' },
+];
+
+export function emptySocialInsuranceBreakdown(): SocialInsuranceBreakdown {
+  return { healthInsurance: 0, nursingCare: 0, pension: 0, employmentInsurance: 0, other: 0 };
+}
+
+export function sumSocialInsuranceBreakdown(b: SocialInsuranceBreakdown): number {
+  return SOCIAL_INSURANCE_ITEMS.reduce((sum, item) => sum + b[item.key], 0);
+}
+
 export interface MonthlyRecord {
   month: number; // 1-12
   status: 'actual' | 'estimated';
   grossSalary: number;
+  /** 一括入力(socialInsuranceInputMode !== 'breakdown')のときに使う社会保険料の合計額 */
   socialInsurance: number;
   isSocialInsuranceExempt: boolean;
+  /**
+   * Issue #48: 社会保険料の入力方法を月ごとに選べる。省略時は'total'(既存データとの互換)。
+   * 'breakdown'のときは socialInsuranceBreakdown の合計をその月の社会保険料として扱う
+   * (resolveMonthlySocialInsurance が唯一の参照経路。両者を同時に真とはしない)。
+   */
+  socialInsuranceInputMode?: 'total' | 'breakdown';
+  /** 内訳入力の値。一括入力に戻したときに内訳を失わないよう、モードを切り替えても保持する */
+  socialInsuranceBreakdown?: SocialInsuranceBreakdown;
 }
 
 export interface Bonus {

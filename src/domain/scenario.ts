@@ -1,6 +1,6 @@
 import { buildCalculationResult } from './engine';
 import { findFurusatoLimit } from './furusato';
-import { monthsInRange } from './income';
+import { monthsInRange, resolveMonthlySocialInsurance } from './income';
 import { floorYen, type CalculationResult, type Yen, type YearProfile } from './types';
 import type { TaxParams } from '../taxParams/schema';
 
@@ -67,15 +67,26 @@ export function applyScenarioOverride(base: YearProfile, override: ScenarioOverr
       const nonLeaveMonths = profile.income.monthly.filter((m) => !allExemptMonths.has(m.month));
       const avgGross = nonLeaveMonths.length > 0 ? Math.round(nonLeaveMonths.reduce((s, m) => s + m.grossSalary, 0) / nonLeaveMonths.length) : 0;
       const avgSocial =
-        nonLeaveMonths.length > 0 ? Math.round(nonLeaveMonths.reduce((s, m) => s + m.socialInsurance, 0) / nonLeaveMonths.length) : 0;
+        nonLeaveMonths.length > 0
+          ? Math.round(nonLeaveMonths.reduce((s, m) => s + resolveMonthlySocialInsurance(m), 0) / nonLeaveMonths.length)
+          : 0;
 
       const freedSet = new Set(freedMonths);
       const monthly = profile.income.monthly.map((rec) => {
         // 解放される月でも、すでに0円以外の給与が記録されている場合はユーザーが実際に入力した
         // 値を優先し上書きしない(実装後レビュー対応: 育休期間追加より前に年間の見込みを
         // 埋めていたようなケースで、既存データを平均値で消してしまわないようにする)。
-        if (freedSet.has(rec.month) && rec.grossSalary === 0 && rec.socialInsurance === 0) {
-          return { ...rec, grossSalary: avgGross, socialInsurance: avgSocial, status: 'estimated' as const, isSocialInsuranceExempt: false };
+        if (freedSet.has(rec.month) && rec.grossSalary === 0 && resolveMonthlySocialInsurance(rec) === 0) {
+          // 平均値は月をまたいだ見込み額であり内訳に分解できないため、一括入力として入れる(Issue #48)
+          return {
+            ...rec,
+            grossSalary: avgGross,
+            socialInsurance: avgSocial,
+            socialInsuranceInputMode: 'total' as const,
+            socialInsuranceBreakdown: undefined,
+            status: 'estimated' as const,
+            isSocialInsuranceExempt: false,
+          };
         }
         return rec;
       });
