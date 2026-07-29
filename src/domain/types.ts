@@ -271,7 +271,11 @@ export interface CalculationResult {
     taxableIncome: Yen;
     incomeLevyBeforeAdj: Yen;
     adjustmentCredit: Yen;
+    /** 調整控除後・税額控除前の所得割額。自治体の実効税率(超過課税込み)で計算した額 */
     incomeLevy: Yen;
+    /** ふるさと納税 特例分の20%枠の基準となる所得割額。
+     *  MunicipalityConfig.useStandardRateForFurusatoがtrueなら標準税率10%で算出する(02仕様書§2.2) */
+    incomeLevyForFurusatoCap: Yen;
     furusatoCreditBasic: Yen;
     furusatoCreditSpecial: Yen;
     housingLoanApplied: Yen;

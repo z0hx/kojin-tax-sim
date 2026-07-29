@@ -35,6 +35,13 @@ export async function loadTaxParams(year: number, baseUrl = '/'): Promise<TaxPar
   if (data.year !== year) {
     throw new TaxParamsError(year, `税制パラメータの年分が一致しません(期待:${year}, 実際:${data.year})`);
   }
+  // 住民税の標準税率はふるさと納税20%枠の基準に直接効く。欠けていると計算結果がNaNになり、
+  // 上限額として無意味な値が表示されてしまうため、読み込み時点で弾く(§8 fail closed)。
+  for (const key of ['municipalIncomeRateStandard', 'prefecturalIncomeRateStandard'] as const) {
+    if (!Number.isFinite(data.residentTax?.[key])) {
+      throw new TaxParamsError(year, `税制パラメータに residentTax.${key} がありません(${year}年分)`);
+    }
+  }
   return data;
 }
 

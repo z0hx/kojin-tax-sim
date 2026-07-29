@@ -51,6 +51,18 @@ describe('loadTaxParams', () => {
     await expect(loadTaxParams(2026, '/base/')).rejects.toMatchObject({ year: 2026 });
   });
 
+  it('住民税の標準税率が欠けている場合はTaxParamsErrorを投げる(ふるさと納税20%枠の基準がNaNになるため)', async () => {
+    const broken = { ...minimalParams(2026), residentTax: { municipalIncomeRateStandard: 0.06 } } as unknown as TaxParams;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(broken), { status: 200 }))
+    );
+    await expect(loadTaxParams(2026, '/base/')).rejects.toMatchObject({
+      year: 2026,
+      message: expect.stringContaining('prefecturalIncomeRateStandard'),
+    });
+  });
+
   it('baseUrlを既定値のまま呼ぶとルート相対パスでfetchする', async () => {
     stubFetchForTaxParams();
     await loadTaxParams(2026);

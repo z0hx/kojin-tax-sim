@@ -28,7 +28,7 @@ describe('buildCalculationResult', () => {
     const profile = makeM1Profile(32_000_000);
     profile.furusato.donatedAmount = 200_000;
     const result = buildCalculationResult(profile, TAX_PARAMS_2026);
-    expect(result.residentTax.incomeLevyFinal).toBe(69_300);
+    expect(result.residentTax.incomeLevyFinal).toBe(69_400);
     const ids = result.warnings.map((w) => w.id);
     expect(ids).toContain('W-03');
     expect(ids).toContain('W-07');
