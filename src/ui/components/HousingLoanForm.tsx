@@ -165,6 +165,7 @@ export function HousingLoanForm({ value, year, previousYearBalance, onChange }: 
               type="text"
               inputMode="numeric"
               aria-label="借入限度額"
+              aria-describedby="borrowing-cap-help"
               value={value.borrowingCap}
               onChange={(e) => {
                 const n = parseNonNegativeInt(e.target.value);
@@ -174,6 +175,30 @@ export function HousingLoanForm({ value, year, previousYearBalance, onChange }: 
             />
             円
           </label>
+
+          {/* Issue #50: 「借入限度額」が何の値か分からないという指摘への対応。控除額の式のどこに効くのかと、
+              値の調べ方をフォーム内に置く。具体的な金額は住宅区分・入居年で変わり本アプリの税制パラメータ
+              (public/taxParams)にも持っていないため、断定せず目安と一次情報の確認先を示す */}
+          <div id="borrowing-cap-help" style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: '-0.25rem 0 0 0', lineHeight: 1.6 }}>
+            <p style={{ margin: 0 }}>
+              控除の対象にできる年末残高の上限額です。住宅の種類(認定住宅・ZEH水準・省エネ基準など)と入居年で決まり、
+              入居時の住宅区分により3,000万〜5,000万円程度です。正確な額は国税庁「住宅借入金等特別控除」の区分表、または
+              確定申告・年末調整で使った控除の計算明細書でご確認ください。
+            </p>
+            <p style={{ margin: '0.25rem 0 0' }}>
+              控除額は <span className="amount">min(年末残高, 借入限度額) × 控除率</span> で計算するため、年末残高がこの額を超える部分は控除に反映されません。
+            </p>
+            <p style={{ margin: '0.25rem 0 0' }}>
+              現在の控除対象残高{' '}
+              <span className="amount">{Math.min(value.yearEndBalance, value.borrowingCap).toLocaleString()}円</span>
+              {value.borrowingCap === 0 && (
+                <span style={{ color: 'var(--color-warning)' }}>
+                  {' '}
+                  (借入限度額が0円のため、住宅ローン控除額は0円として計算されます)
+                </span>
+              )}
+            </p>
+          </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ minWidth: '9rem' }}>住民税繰越上限ルール</span>
             <select

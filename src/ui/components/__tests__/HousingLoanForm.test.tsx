@@ -148,6 +148,36 @@ describe('HousingLoanForm(Issue #8)', () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...loan, residentTaxCapRule: 'rule7pct136500' });
   });
 
+  it('借入限度額の説明(何の値か・控除額の式・調べ方)が表示される(Issue #50)', () => {
+    render(<HousingLoanForm value={loan} year={2026} previousYearBalance={undefined} onChange={vi.fn()} />);
+
+    const help = document.getElementById('borrowing-cap-help');
+    expect(help).not.toBeNull();
+    expect(help!.textContent).toContain('控除の対象にできる年末残高の上限額');
+    expect(help!.textContent).toContain('min(年末残高, 借入限度額) × 控除率');
+    expect(help!.textContent).toContain('住宅借入金等特別控除');
+    // 入力欄と説明が支援技術上も紐づいていること
+    expect(screen.getByLabelText('借入限度額')).toHaveAttribute('aria-describedby', 'borrowing-cap-help');
+  });
+
+  it('控除対象残高は年末残高と借入限度額の小さい方を表示する(Issue #50)', () => {
+    render(
+      <HousingLoanForm value={{ ...loan, yearEndBalance: 45_000_000, borrowingCap: 40_000_000 }} year={2026} previousYearBalance={undefined} onChange={vi.fn()} />
+    );
+    expect(document.getElementById('borrowing-cap-help')!.textContent).toContain('40,000,000円');
+  });
+
+  it('借入限度額が0円のときは控除額が0円になる旨を注意表示する(Issue #50: 既定値のまま気づかず0円で計算されるのを防ぐ)', () => {
+    const { unmount } = render(
+      <HousingLoanForm value={{ ...loan, borrowingCap: 0 }} year={2026} previousYearBalance={undefined} onChange={vi.fn()} />
+    );
+    expect(document.getElementById('borrowing-cap-help')!.textContent).toContain('住宅ローン控除額は0円として計算されます');
+    unmount();
+
+    render(<HousingLoanForm value={loan} year={2026} previousYearBalance={undefined} onChange={vi.fn()} />);
+    expect(document.getElementById('borrowing-cap-help')!.textContent).not.toContain('住宅ローン控除額は0円として計算されます');
+  });
+
   it('前年より年末残高が増加している場合、警告が表示される(02仕様書§6バリデーション)', () => {
     render(<HousingLoanForm value={{ ...loan, yearEndBalance: 35_000_000 }} year={2026} previousYearBalance={32_000_000} onChange={vi.fn()} />);
     expect(screen.getByRole('alert')).toHaveTextContent('年末残高が前年');
