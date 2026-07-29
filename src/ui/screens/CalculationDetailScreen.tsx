@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { PrintButton } from '../components/PrintButton';
+import { TaxParamsProvenance } from '../components/TaxParamsProvenance';
 import type { TraceStep } from '../../domain/types';
 
 const PERCENT_KEYS = new Set(['marginalRate']);
@@ -92,6 +93,9 @@ export function CalculationDetailScreen() {
         <PrintButton style={{ marginLeft: 'auto' }} />
       </div>
       {errorBanner}
+
+      {/* R-10: 根拠の開示(FR-18)を担う本画面に、計算に使ったパラメータの最終確認日・出典を常時表示する */}
+      <TaxParamsProvenance params={params} />
 
       <section style={{ marginTop: '1.5rem' }}>
         <h2 style={{ fontSize: '1rem' }}>ふるさと納税上限額の解釈による振れ幅(02仕様書§4.3)</h2>

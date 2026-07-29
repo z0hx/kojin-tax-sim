@@ -7,6 +7,7 @@ import { PrintButton } from '../components/PrintButton';
 import { daysSince } from '../dateUtils';
 import { formatRateAsPercent } from '../parseAmount';
 import { compareWithActuals } from '../../domain/actuals';
+import { isTaxParamsStale } from '../../taxParams/loader';
 
 /** 安全率(FR-13)の可変範囲。0%まで許すと推奨額が常に0円になり画面の意味が失われるため、実用範囲に絞る */
 const MIN_SAFETY_PERCENT = 50;
@@ -180,6 +181,21 @@ export function DashboardScreen() {
           ⚠ 検算(実績値との突合)で誤差±1%を超える項目があります。本アプリの出力を実際の申告・納税の意思決定に使用しないでください。{' '}
           <button className="no-print" type="button" onClick={() => navigate('actuals')}>
             検算画面で確認
+          </button>
+        </p>
+      )}
+
+      {/* R-01: 税制パラメータの最終確認日から1年以上経過していたら、起動時の画面である本画面で警告する。
+          パラメータの誤りは上限額の誤りに直結するため、無言で古い値を使い続けない */}
+      {isTaxParamsStale(params) && (
+        <p
+          role="alert"
+          style={{ marginTop: '1rem', background: 'var(--color-warning-bg)', color: 'var(--color-warning)', padding: '0.5rem 0.8rem', borderRadius: 6 }}
+        >
+          ⚠ {profile.year}年分の税制パラメータは最終確認日({params.meta.verifiedAt})から1年以上経過しています。
+          税制改正が反映されていない可能性があるため、計算結果をそのまま使わないでください。{' '}
+          <button className="no-print" type="button" onClick={() => navigate('calculationDetail')}>
+            出典を確認
           </button>
         </p>
       )}
