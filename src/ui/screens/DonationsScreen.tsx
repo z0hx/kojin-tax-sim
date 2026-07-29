@@ -21,6 +21,7 @@ export function DonationsScreen() {
   const clearLastError = useAppStore((s) => s.clearLastError);
   const recordDonation = useAppStore((s) => s.recordDonation);
   const removeDonation = useAppStore((s) => s.removeDonation);
+  const updateFurusatoInput = useAppStore((s) => s.updateFurusatoInput);
 
   const [municipalityName, setMunicipalityName] = useState('');
   const [amountText, setAmountText] = useState('');
@@ -81,6 +82,7 @@ export function DonationsScreen() {
   const remaining = Math.max(0, limitAmount - profile.furusato.donatedAmount);
   const oneStop = evaluateOneStopEligibility(profile);
   const deadlinePassed = daysSince(oneStop.deadline) > 0;
+  const method = profile.furusato.method;
 
   function handleAdd() {
     setFormError(null);
@@ -125,6 +127,34 @@ export function DonationsScreen() {
         </p>
       </section>
 
+      {/* FR-14。申告方式は寄附金控除の申告手続きの選択であり、寄附の記録と同じ画面に置く。
+          選択した方式はW-04(医療費控除がある状態でのワンストップ特例警告)の発火条件にも連動する */}
+      <section style={{ marginTop: '1.5rem' }}>
+        <h2 style={{ fontSize: '1rem' }}>申告方式</h2>
+        <div role="radiogroup" aria-label="申告方式" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <input
+              type="radio"
+              name="furusatoMethod"
+              value="oneStop"
+              checked={method === 'oneStop'}
+              onChange={() => updateFurusatoInput({ method: 'oneStop' })}
+            />
+            ワンストップ特例
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <input
+              type="radio"
+              name="furusatoMethod"
+              value="taxReturn"
+              checked={method === 'taxReturn'}
+              onChange={() => updateFurusatoInput({ method: 'taxReturn' })}
+            />
+            確定申告
+          </label>
+        </div>
+      </section>
+
       <section
         style={{
           marginTop: '1.5rem',
@@ -142,9 +172,22 @@ export function DonationsScreen() {
         ) : (
           <p style={{ margin: 0 }}>利用できません。{oneStop.reason}</p>
         )}
-        {oneStop.eligible && deadlinePassed && (
+        {oneStop.eligible && deadlinePassed && method === 'oneStop' && (
           <p role="alert" style={{ margin: '0.4rem 0 0', fontWeight: 700 }}>
             ⚠ 提出期限({oneStop.deadline})を過ぎています。確定申告での申告に切り替えてください。
+          </p>
+        )}
+        {!oneStop.eligible && method === 'oneStop' && (
+          <p role="alert" style={{ margin: '0.4rem 0 0', fontWeight: 700 }}>
+            ⚠ 申告方式が「ワンストップ特例」のままです。このままでは寄附金控除が受けられません。{' '}
+            <button type="button" onClick={() => updateFurusatoInput({ method: 'taxReturn' })}>
+              確定申告に切り替える
+            </button>
+          </p>
+        )}
+        {method === 'taxReturn' && (
+          <p style={{ margin: '0.4rem 0 0' }}>
+            申告方式は「確定申告」です。ワンストップ特例申請書は提出せず、確定申告で寄附金控除を申告してください。
           </p>
         )}
       </section>

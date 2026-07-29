@@ -396,6 +396,23 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, municipality: { ...profile.municipality, ...patch } }));
     },
 
+    updatePersonDefaults(personId, patch) {
+      const state = get();
+      if (!state.appData) return;
+      const idx = state.appData.persons.findIndex((p) => p.id === personId);
+      if (idx === -1) return;
+      const persons = [...state.appData.persons];
+      const current = persons[idx];
+      persons[idx] = {
+        ...current,
+        updatedAt: nowIso(),
+        defaults: { ...current.defaults, ...patch, municipality: { ...current.defaults.municipality, ...patch.municipality } },
+      };
+      const newAppData = { ...state.appData, persons };
+      set({ appData: newAppData });
+      saveQueue.schedule(newAppData);
+    },
+
     addPerson(displayName, color, municipality) {
       const state = get();
       const base = state.appData ?? emptyAppData();

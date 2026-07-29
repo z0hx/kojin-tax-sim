@@ -5,7 +5,12 @@ import { useNavigation } from '../navigation';
 import { WarningBannerList } from '../components/WarningBannerList';
 import { PrintButton } from '../components/PrintButton';
 import { daysSince } from '../dateUtils';
+import { formatRateAsPercent } from '../parseAmount';
 import { compareWithActuals } from '../../domain/actuals';
+
+/** 安全率(FR-13)の可変範囲。0%まで許すと推奨額が常に0円になり画面の意味が失われるため、実用範囲に絞る */
+const MIN_SAFETY_PERCENT = 50;
+const MAX_SAFETY_PERCENT = 100;
 
 /** 西暦年から令和年へ変換する(令和1年=2019年)。02仕様書§5 S-01モックアップの表示形式に合わせる */
 function toReiwaYear(year: number): number {
@@ -34,6 +39,7 @@ export function DashboardScreen() {
   const taxParams = useAppStore((s) => s.taxParams);
   const setActiveYear = useAppStore((s) => s.setActiveYear);
   const copyYearFromPrevious = useAppStore((s) => s.copyYearFromPrevious);
+  const setSafetyRatio = useAppStore((s) => s.setSafetyRatio);
   const lastError = useAppStore((s) => s.lastError);
   const clearLastError = useAppStore((s) => s.clearLastError);
   // 「次年度を追加」ボタンの二重送信防止(実装後レビュー対応: IncomeScreenの年度作成ボタンと同様、
@@ -104,6 +110,10 @@ export function DashboardScreen() {
 
   const { furusato, warnings, income } = calculationResult;
   const remaining = Math.max(0, furusato.limitAmount - profile.furusato.donatedAmount);
+  // スライダーは1%刻みのため位置は整数に丸めるが、表示は保存値をそのまま出す
+  // (取り込んだデータが90.5%のような値を持つ場合に、実際の計算と違う率を表示しないため)
+  const safetyPercentLabel = formatRateAsPercent(profile.furusato.safetyRatio);
+  const safetyPercent = Math.round(profile.furusato.safetyRatio * 100);
 
   const confidenceRatio = calculationResult.confidenceRatio;
   const confidencePercent = Math.round(confidenceRatio * 100);
@@ -192,8 +202,22 @@ export function DashboardScreen() {
           ふるさと納税 上限額 <span className="amount" style={{ fontSize: '1.1rem' }}>{furusato.limitAmount.toLocaleString()}円</span>
         </p>
         <p style={{ margin: '0.2rem 0', fontSize: '1.4rem', fontWeight: 700 }}>
-          推奨額(安全率適用後) <span className="amount">{furusato.recommendedAmount.toLocaleString()}円</span>
+          推奨額(安全率{safetyPercentLabel}%) <span className="amount">{furusato.recommendedAmount.toLocaleString()}円</span>
         </p>
+        {/* FR-13「安全率は変更可」。推奨額の直下に置き、動かした結果が同じ画面で確認できるようにする。
+            変更対象は表示中の年度のみで、新しい年度の初期値は基本設定画面で別に設定する */}
+        <label className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.2rem 0', fontSize: '0.9rem' }}>
+          安全率
+          <input
+            type="range"
+            min={MIN_SAFETY_PERCENT}
+            max={MAX_SAFETY_PERCENT}
+            step={1}
+            value={safetyPercent}
+            onChange={(e) => setSafetyRatio(Number((Number(e.target.value) / 100).toFixed(4)))}
+          />
+          <span className="amount">{safetyPercentLabel}%</span>
+        </label>
         <p style={{ margin: '0.2rem 0' }}>
           寄附済み <span className="amount">{profile.furusato.donatedAmount.toLocaleString()}円</span>
         </p>

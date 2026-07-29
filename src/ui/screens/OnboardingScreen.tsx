@@ -1,34 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAppStore, DEFAULT_MUNICIPALITY } from '../../store/useAppStore';
-import type { MunicipalityConfig } from '../../domain/types';
 import { PersonAvatar } from '../components/PersonAvatar';
 import { Disclaimer } from '../components/Disclaimer';
+import { MunicipalityForm, draftToConfig, hasDraftError, toDraft, validateDraft } from '../components/MunicipalityForm';
 
 const DEFAULT_COLOR = '#3366cc';
-
-function toPercentString(fraction: number): string {
-  return String(Number((fraction * 100).toFixed(6)));
-}
-
-/** 空文字/NaN/負値はnullを返す(呼び出し側で「未入力・不正」としてブロックする。既定値へのフォールバックはしない) */
-function parseNonNegative(input: string): number | null {
-  const trimmed = input.trim();
-  if (trimmed.length === 0) return null;
-  const n = Number(trimmed);
-  if (!Number.isFinite(n) || n < 0) return null;
-  return n;
-}
-
-function parsePercentToFraction(input: string): number | null {
-  const n = parseNonNegative(input);
-  return n === null ? null : Number((n / 100).toFixed(6));
-}
-
-/** 均等割は常に整数円のため、非負の整数のみを受け付ける(小数はnullとしてブロックする) */
-function parseNonNegativeInteger(input: string): number | null {
-  const n = parseNonNegative(input);
-  return n === null || !Number.isInteger(n) ? null : n;
-}
 
 type Step = 1 | 2 | 3;
 
@@ -48,12 +24,7 @@ export function OnboardingScreen() {
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [nameTouched, setNameTouched] = useState(false);
 
-  const [prefectureName, setPrefectureName] = useState('');
-  const [cityName, setCityName] = useState('');
-  const [municipalRatePct, setMunicipalRatePct] = useState(toPercentString(DEFAULT_MUNICIPALITY.municipalIncomeRate));
-  const [prefecturalRatePct, setPrefecturalRatePct] = useState(toPercentString(DEFAULT_MUNICIPALITY.prefecturalIncomeRate));
-  const [municipalPerCapita, setMunicipalPerCapita] = useState(String(DEFAULT_MUNICIPALITY.municipalPerCapita));
-  const [prefecturalPerCapita, setPrefecturalPerCapita] = useState(String(DEFAULT_MUNICIPALITY.prefecturalPerCapita));
+  const [draft, setDraft] = useState(() => toDraft(DEFAULT_MUNICIPALITY));
 
   const [busy, setBusy] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -65,17 +36,8 @@ export function OnboardingScreen() {
   const trimmedName = displayName.trim();
   const nameError = trimmedName.length === 0 ? '表示名を入力してください' : null;
 
-  const municipalRate = parsePercentToFraction(municipalRatePct);
-  const prefecturalRate = parsePercentToFraction(prefecturalRatePct);
-  const municipalCapita = parseNonNegativeInteger(municipalPerCapita);
-  const prefecturalCapita = parseNonNegativeInteger(prefecturalPerCapita);
-  const rateErrors = {
-    municipalRate: municipalRate === null ? '0以上の数値を入力してください' : null,
-    prefecturalRate: prefecturalRate === null ? '0以上の数値を入力してください' : null,
-    municipalCapita: municipalCapita === null ? '0以上の整数(円)を入力してください' : null,
-    prefecturalCapita: prefecturalCapita === null ? '0以上の整数(円)を入力してください' : null,
-  };
-  const hasRateError = Object.values(rateErrors).some(Boolean);
+  const rateErrors = validateDraft(draft);
+  const hasRateError = hasDraftError(rateErrors);
 
   function handleStep2Submit(e: FormEvent) {
     e.preventDefault();
@@ -84,17 +46,8 @@ export function OnboardingScreen() {
   }
 
   async function handleFinish() {
-    if (hasRateError) return;
-    const municipality: MunicipalityConfig = {
-      name: cityName.trim(),
-      prefectureName: prefectureName.trim(),
-      municipalIncomeRate: municipalRate as number,
-      prefecturalIncomeRate: prefecturalRate as number,
-      municipalPerCapita: municipalCapita as number,
-      prefecturalPerCapita: prefecturalCapita as number,
-      forestTax: DEFAULT_MUNICIPALITY.forestTax,
-      useStandardRateForFurusato: DEFAULT_MUNICIPALITY.useStandardRateForFurusato,
-    };
+    const municipality = draftToConfig(draft, DEFAULT_MUNICIPALITY);
+    if (municipality === null) return;
     setBusy(true);
     try {
       await completeOnboarding(trimmedName, color, municipality);
@@ -182,101 +135,7 @@ export function OnboardingScreen() {
               自治体を設定
             </h1>
             <p>お住まいの都道府県・市区町村を入力してください。住民税の標準税率が初期値として設定されます。</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <label>
-                都道府県
-                <input
-                  type="text"
-                  value={prefectureName}
-                  onChange={(e) => setPrefectureName(e.target.value)}
-                  placeholder="例: 神奈川県"
-                  style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
-                />
-              </label>
-              <label>
-                市区町村
-                <input
-                  type="text"
-                  value={cityName}
-                  onChange={(e) => setCityName(e.target.value)}
-                  placeholder="例: 横浜市"
-                  style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
-                />
-              </label>
-
-              <details>
-                <summary>詳細設定(お住まいの自治体に超過課税がある場合に調整)</summary>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <label>
-                    所得割率(市町村) %
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={municipalRatePct}
-                      onChange={(e) => setMunicipalRatePct(e.target.value)}
-                      aria-invalid={Boolean(rateErrors.municipalRate)}
-                      style={{ display: 'block', marginTop: '0.25rem' }}
-                    />
-                  </label>
-                  {rateErrors.municipalRate && (
-                    <p role="alert" style={{ color: 'var(--color-danger)', margin: 0, fontSize: '0.85rem' }}>
-                      {rateErrors.municipalRate}
-                    </p>
-                  )}
-                  <label>
-                    所得割率(道府県) %
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={prefecturalRatePct}
-                      onChange={(e) => setPrefecturalRatePct(e.target.value)}
-                      aria-invalid={Boolean(rateErrors.prefecturalRate)}
-                      style={{ display: 'block', marginTop: '0.25rem' }}
-                    />
-                  </label>
-                  {rateErrors.prefecturalRate && (
-                    <p role="alert" style={{ color: 'var(--color-danger)', margin: 0, fontSize: '0.85rem' }}>
-                      {rateErrors.prefecturalRate}
-                    </p>
-                  )}
-                  <label>
-                    均等割(市町村) 円
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={municipalPerCapita}
-                      onChange={(e) => setMunicipalPerCapita(e.target.value)}
-                      aria-invalid={Boolean(rateErrors.municipalCapita)}
-                      style={{ display: 'block', marginTop: '0.25rem' }}
-                    />
-                  </label>
-                  {rateErrors.municipalCapita && (
-                    <p role="alert" style={{ color: 'var(--color-danger)', margin: 0, fontSize: '0.85rem' }}>
-                      {rateErrors.municipalCapita}
-                    </p>
-                  )}
-                  <label>
-                    均等割(道府県) 円
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={prefecturalPerCapita}
-                      onChange={(e) => setPrefecturalPerCapita(e.target.value)}
-                      aria-invalid={Boolean(rateErrors.prefecturalCapita)}
-                      style={{ display: 'block', marginTop: '0.25rem' }}
-                    />
-                  </label>
-                  {rateErrors.prefecturalCapita && (
-                    <p role="alert" style={{ color: 'var(--color-danger)', margin: 0, fontSize: '0.85rem' }}>
-                      {rateErrors.prefecturalCapita}
-                    </p>
-                  )}
-                  <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: '0.85rem' }}>
-                    森林環境税(国税) {DEFAULT_MUNICIPALITY.forestTax.toLocaleString()}円は自治体によらず一律です。
-                  </p>
-                </div>
-              </details>
-            </div>
+            <MunicipalityForm draft={draft} onChange={setDraft} errors={rateErrors} forestTax={DEFAULT_MUNICIPALITY.forestTax} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
               <button type="button" onClick={() => setStep(2)} disabled={busy}>

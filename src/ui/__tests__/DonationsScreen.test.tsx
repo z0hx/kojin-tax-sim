@@ -200,4 +200,44 @@ describe('DonationsScreen(S-08相当)', () => {
     expect(within(main).getByText(/利用できません/)).toBeInTheDocument();
     expect(within(main).getByText(/6自治体/)).toBeInTheDocument();
   });
+
+  it('申告方式を確定申告へ切り替えるとYearProfileに保存され、W-04が発火しなくなる(FR-14)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    useAppStore.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
+    useAppStore.getState().updateDeductions({ medical: { paid: 150_000, reimbursed: 0, selfMedication: 0, mode: 'auto' } });
+    await flushNow();
+
+    // 医療費控除があり申告方式がワンストップ特例の初期状態ではW-04が出ている
+    expect(useAppStore.getState().calculationResult!.warnings.some((w) => w.id === 'W-04')).toBe(true);
+
+    await renderAppAndWaitLoaded();
+    const main = await openDonationsScreen();
+
+    expect(within(main).getByRole('radio', { name: 'ワンストップ特例' })).toBeChecked();
+    await userEvent.click(within(main).getByRole('radio', { name: '確定申告' }));
+
+    await waitFor(() => expect(useAppStore.getState().appData!.persons[0].years[2026].furusato.method).toBe('taxReturn'));
+    expect(useAppStore.getState().calculationResult!.warnings.some((w) => w.id === 'W-04')).toBe(false);
+    expect(within(main).getByText(/ワンストップ特例申請書は提出せず/)).toBeInTheDocument();
+  });
+
+  it('ワンストップ特例が利用不可なのに申告方式がワンストップのままなら警告し、その場で切り替えられる', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    useAppStore.getState().updateDeductions({ medical: { paid: 150_000, reimbursed: 0, selfMedication: 0, mode: 'auto' } });
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    const main = await openDonationsScreen();
+
+    expect(within(main).getByRole('alert')).toHaveTextContent('申告方式が「ワンストップ特例」のままです');
+    await userEvent.click(within(main).getByRole('button', { name: '確定申告に切り替える' }));
+
+    await waitFor(() => expect(useAppStore.getState().appData!.persons[0].years[2026].furusato.method).toBe('taxReturn'));
+    expect(within(main).queryByText(/申告方式が「ワンストップ特例」のままです/)).not.toBeInTheDocument();
+    expect(within(main).getByRole('radio', { name: '確定申告' })).toBeChecked();
+  });
 });
