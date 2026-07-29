@@ -34,23 +34,10 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: { cacheName: 'tax-params', expiration: { maxAgeSeconds: 60 * 60 * 24 } },
           },
-          {
-            // Google Fontsのスタイルシート(更新されうるのでSWR)
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-stylesheets' },
-          },
-          {
-            // フォント本体(不変。1年キャッシュ)
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              cacheableResponse: { statuses: [0, 200] },
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
         ],
+        // Webフォントは読み込まない(theme.cssはOS標準フォントのみを指定する)ため、
+        // fonts.googleapis.com / fonts.gstatic.com のruntimeCachingは持たない。
+        // 外部への通信が一切発生しない状態を保つ(NFR-01・要件定義書§7.1)
       },
     }),
   ],

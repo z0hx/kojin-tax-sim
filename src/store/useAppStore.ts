@@ -441,14 +441,6 @@ function createStoreImpl(set: Set, get: Get): AppStore {
 
     async completeOnboarding(displayName, color, municipality) {
       const personId = get().addPerson(displayName, color, municipality);
-      // addPerson後にget()し直す(先に取得したstateを使うとappData.persons追加前のappDataで
-      // appSettingsだけ上書きしてしまい、直前に作った人物を消してしまう)
-      const afterAdd = get();
-      if (afterAdd.appData) {
-        const newAppData: AppData = { ...afterAdd.appData, appSettings: { ...afterAdd.appData.appSettings, onboardingCompleted: true } };
-        set({ appData: newAppData });
-        saveQueue.schedule(newAppData);
-      }
       // オンボーディング完了は初めての書き込みであり、直後にタブを閉じられるとデバウンス待ちの間に
       // 「保存されているはず」の説明(S-12ステップ1)に反して消える恐れがあるため即時確定させる
       try {
@@ -594,14 +586,6 @@ function createStoreImpl(set: Set, get: Get): AppStore {
 
     setSafetyRatio(ratio) {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, furusato: { ...profile.furusato, safetyRatio: ratio } }));
-    },
-
-    setCapMode(mode) {
-      const state = get();
-      if (!state.appData) return;
-      const newAppData = { ...state.appData, appSettings: { ...state.appData.appSettings, furusatoCapMode: mode } };
-      set({ appData: newAppData });
-      saveQueue.schedule(newAppData);
     },
 
     async exportData(opts) {

@@ -10,7 +10,7 @@ import { loadTaxParams } from '../loader';
 
 const PARAMS_DIR = join(process.cwd(), 'public', 'taxParams');
 
-/** 年分ファイルのみを対象にする(index.json のような付随ファイルは含めない) */
+/** 年分ファイルのみを対象にする(将来付随ファイルが増えても壊れないようにする) */
 const yearFiles = readdirSync(PARAMS_DIR)
   .filter((name) => /^\d{4}\.json$/.test(name))
   .sort();

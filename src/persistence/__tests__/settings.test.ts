@@ -23,17 +23,17 @@ describe('settings (localStorageにはUI状態のみ保存)', () => {
   });
 
   it('未保存時は既定値を返す', () => {
-    expect(loadUiSettings()).toEqual({ theme: 'system', lastActivePersonId: null, lastActiveYear: null });
+    expect(loadUiSettings()).toEqual({ lastActivePersonId: null, lastActiveYear: null });
   });
 
   it('保存した値を読み込める', () => {
-    saveUiSettings({ theme: 'dark', lastActivePersonId: 'p1', lastActiveYear: 2026 });
-    expect(loadUiSettings()).toEqual({ theme: 'dark', lastActivePersonId: 'p1', lastActiveYear: 2026 });
+    saveUiSettings({ lastActivePersonId: 'p1', lastActiveYear: 2026 });
+    expect(loadUiSettings()).toEqual({ lastActivePersonId: 'p1', lastActiveYear: 2026 });
   });
 
   it('localStorageが存在しない環境では既定値を返し、例外を投げない', () => {
     delete (globalThis as Record<string, unknown>).localStorage;
     expect(() => loadUiSettings()).not.toThrow();
-    expect(() => saveUiSettings({ theme: 'light', lastActivePersonId: null, lastActiveYear: null })).not.toThrow();
+    expect(() => saveUiSettings({ lastActivePersonId: null, lastActiveYear: null })).not.toThrow();
   });
 });

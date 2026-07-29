@@ -3,8 +3,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { PersonSelector } from './PersonSelector';
 
-/** 共通ヘッダー(02仕様書§5)。年度表示は現状値の表示のみで、切替UIは他Issue(ダッシュボード等)の範囲。
- *  ⚙メニューは画面遷移の汎用の入口として、人物管理・データ管理を置く。 */
+/** 共通ヘッダー(02仕様書§5)。年度表示は現在値の表示のみで、年度の切替はダッシュボードで行う。
+ *  ⚙メニューは各画面への汎用の入口。 */
 export function Header() {
   const activeYear = useAppStore((s) => s.activeYear);
   const navigate = useNavigation((s) => s.navigate);

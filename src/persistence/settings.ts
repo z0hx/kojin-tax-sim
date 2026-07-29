@@ -2,14 +2,13 @@
 
 const STORAGE_KEY = 'taxsim.uiSettings';
 
+/** 配色は ui/theme.css の prefers-color-scheme のみで決まるため、themeは持たない(#41) */
 export interface UiSettings {
-  theme: 'light' | 'dark' | 'system';
   lastActivePersonId: string | null;
   lastActiveYear: number | null;
 }
 
 const DEFAULT_UI_SETTINGS: UiSettings = {
-  theme: 'system',
   lastActivePersonId: null,
   lastActiveYear: null,
 };

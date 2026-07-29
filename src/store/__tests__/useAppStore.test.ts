@@ -145,12 +145,11 @@ describe('useAppStore', () => {
   });
 
   describe('completeOnboarding(S-12オンボーディング完了)', () => {
-    it('人物を作成し、渡した自治体設定をdefaultsに反映し、appSettings.onboardingCompletedをtrueにする', async () => {
+    it('人物を作成し、渡した自治体設定をdefaultsに反映する', async () => {
       const id = await store.getState().completeOnboarding('本人', '#3366cc', yokohamaMunicipality());
       const s = store.getState();
       expect(s.activePersonId).toBe(id);
       expect(s.onboardingRequired).toBe(false);
-      expect(s.appData!.appSettings.onboardingCompleted).toBe(true);
       const person = s.appData!.persons.find((p) => p.id === id)!;
       expect(person.defaults.municipality).toEqual(yokohamaMunicipality());
     });
@@ -161,7 +160,6 @@ describe('useAppStore', () => {
       // 行われていなければ、この時点でIndexedDBにはまだ書き込まれておらず読み込み結果が空になる
       const reloaded = await loadAppData();
       expect(reloaded?.persons).toHaveLength(1);
-      expect(reloaded?.appSettings.onboardingCompleted).toBe(true);
     });
   });
 
@@ -490,17 +488,6 @@ describe('useAppStore', () => {
       expect(saveBlobMock).not.toHaveBeenCalled();
       expect(store.getState().lastError).not.toBeNull();
       expect(store.getState().appData!.appSettings.lastExportedAt).toBeNull();
-    });
-  });
-
-  describe('setCapMode', () => {
-    it('再計算されない(calculationResultの参照が変わらない)', async () => {
-      store.getState().addPerson('本人', '#111111');
-      await store.getState().createBlankYear(2026);
-      const before = store.getState().calculationResult;
-      store.getState().setCapMode('conservative');
-      expect(store.getState().calculationResult).toBe(before); // 参照が同一 = 再計算していない
-      expect(store.getState().appData?.appSettings.furusatoCapMode).toBe('conservative');
     });
   });
 

@@ -1,8 +1,10 @@
 /* 02仕様書 §1.4.6: 金額の桁を揃えるため等幅数字を優先するフォント指定。
-   セルフホストフォントの導入(Google Fonts等)は本Issueの範囲外のため、system-uiへのフォールバックのみ用意する。 */
+   Webフォントは読み込まずOS標準フォントのみを使う。外部フォントを取得すると利用者のIPアドレスと
+   リファラが第三者に渡るうえ、オフライン動作の条件(NFR-15)も増える。桁揃えは下の
+   font-variant-numeric: tabular-nums で満たせるため、フォント自体の指定は不要と判断した。 */
 :root {
-  --font-sans: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
-  --font-numeric: 'Inter', system-ui, sans-serif;
+  --font-sans: system-ui, sans-serif;
+  --font-numeric: system-ui, sans-serif;
   --color-bg: #ffffff;
   --color-fg: #1a1a1a;
   --color-border: #d0d0d0;

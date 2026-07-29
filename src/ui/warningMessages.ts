@@ -2,9 +2,8 @@ import type { Warning } from '../domain/types';
 
 /**
  * Warning.messageKey → 日本語文言の変換(03詳細設計書§3.8: WarningはmessageKeyのみ持ち、文言解決はUI層の責務)。
- * Issue #7(控除入力画面)ではW-04の文言をMedicalDeductionForm内に直書きしていたが、本Issue(#9)で
- * WarningBannerListを実装するにあたり共通化した。MedicalDeductionForm側もこの関数を使うよう修正し、
- * 2箇所で文言がドリフトしないようにしている。
+ * 警告文言はこの関数に一本化する。W-04のようにダッシュボードの警告一覧と個別の入力フォーム
+ * (MedicalDeductionForm)の両方に出る文言があり、各所に直書きすると内容がドリフトするため。
  */
 export function resolveWarningMessage(warning: Pick<Warning, 'messageKey' | 'params'>): string {
   const p = warning.params ?? {};

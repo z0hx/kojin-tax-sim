@@ -5,10 +5,9 @@ import { HousingLoanForm } from '../components/HousingLoanForm';
 import { HousingLoanBreakdown } from '../components/HousingLoanBreakdown';
 
 /**
- * S-04 住宅ローン控除 入力・可視化画面(02仕様書§5 S-04、Issue #8)。
- * 完了条件: 切り捨て損失が金額として可視化されること。実際のW-01〜W-03警告表示はIssue #9(ダッシュボード・
- * 警告エンジン結線)の範囲であり、本画面はその判定に使う値(taxAfterCredits/wasted等)を
- * calculationResultとして既に露出している状態にとどめる。
+ * S-04 住宅ローン控除 入力・可視化画面(02仕様書§5 S-04)。切り捨て損失を金額として可視化することが主目的。
+ * W-01〜W-03の警告そのものはダッシュボードに集約して表示する(本画面はその判定に使う
+ * taxAfterCredits/wasted等をcalculationResult経由で表示するにとどめる)。
  */
 export function HousingLoanScreen() {
   const navigate = useNavigation((s) => s.navigate);

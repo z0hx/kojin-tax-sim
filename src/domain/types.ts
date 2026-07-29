@@ -45,7 +45,7 @@ export interface TraceStep {
   refs?: string[];
 }
 
-/** 02仕様書 AppSettings.furusatoCapMode と同じ型 */
+/** ふるさと納税20%枠の基準の解釈(02仕様書§4.3)。engineの引数としてのみ使い、永続化する設定としては持たない */
 export type FurusatoCapMode = 'standard' | 'conservative';
 
 // ---------------------------------------------------------------------------

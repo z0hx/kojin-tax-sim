@@ -98,7 +98,7 @@ export function selectEligibleYearProfiles(state: TaxParamsCacheInput, personId:
 
 /**
  * 配偶者の合計所得金額(FR-29)。配偶者控除判定のために本人プロファイルへ参照連携する用途で使う読み取り専用セレクタ。
- * 実際に本人のSpouseInputへ書き込むアクション(linkSpouseIncome)はIssue #14(世帯ビュー)で追加する。
+ * 本人のSpouseInputへ書き込むのはアクション側(useAppStore.linkSpouseIncome)の役割で、ここでは読み取りのみ行う。
  * 対象年のYearProfileまたはtaxParamsが無ければnullを返す(fetchはしない)。
  */
 export function selectSpouseTotalIncome(state: TaxParamsCacheInput, spouseId: string, year: number): number | null {

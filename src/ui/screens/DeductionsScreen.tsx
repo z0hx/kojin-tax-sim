@@ -12,12 +12,11 @@ import { DisabilityDeductionForm } from '../components/DisabilityDeductionForm';
 import { parseNonNegativeInt } from '../parseAmount';
 
 /**
- * S-03 控除入力画面(02仕様書§5相当、03詳細設計書§6.3、Issue #7)。
+ * S-03 控除入力画面(02仕様書§5相当、03詳細設計書§6.3)。
  *
  * 03詳細設計書§6.3は`IdecoForm`単体・`DisabilitySingleParentForm`(障害者控除+ひとり親控除を統合)を
- * 提案しているが、Issue #7本文のアコーディオン列挙(社会保険料・生命保険料・地震保険料・医療費・
- * 配偶者/扶養・iDeCo・ひとり親・障害者控除の8区分)に合わせ、iDeCoはインライン化・ひとり親と
- * 障害者控除は別アコーディオンに分離した。両者はロジック共有が無く統合する実利が無いため。
+ * 提案しているが、実装ではiDeCoをインライン化し、ひとり親と障害者控除は別アコーディオンに分離した。
+ * iDeCoは入力欄が1つでフォームを分ける実利が無く、ひとり親と障害者控除は互いにロジックを共有しないため。
  */
 export function DeductionsScreen() {
   const navigate = useNavigation((s) => s.navigate);
