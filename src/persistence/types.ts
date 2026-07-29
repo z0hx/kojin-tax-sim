@@ -1,5 +1,8 @@
 import type { FurusatoCapMode, MunicipalityConfig, YearProfile } from '../domain/types';
 
+/** 現行スキーマのバージョン(02仕様書§2.1)。保存データ・エクスポートJSONの`schemaVersion`はこの値になる */
+export const CURRENT_SCHEMA_VERSION = 1;
+
 /** 人物(世帯メンバー)。02仕様書§2.1 */
 export interface Person {
   id: string;
@@ -44,7 +47,7 @@ export function defaultAppSettings(): AppSettings {
 
 export function emptyAppData(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     persons: [],
     activePersonId: null,
     appSettings: defaultAppSettings(),

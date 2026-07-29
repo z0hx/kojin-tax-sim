@@ -111,6 +111,19 @@ export function OnboardingScreen() {
       <main style={{ maxWidth: 560, margin: '3rem auto', padding: '0 1rem' }}>
         <p style={{ color: 'var(--color-muted)', fontSize: '0.85rem' }}>ステップ {step} / 3</p>
 
+        {/* 起動時の検証で保存データを破棄した場合(#36)もここに出るため、ステップを問わず先頭に置く */}
+        {lastError && (
+          <div
+            role="alert"
+            style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem', marginBottom: '0.75rem' }}
+          >
+            {lastError.message}
+            <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
+              閉じる
+            </button>
+          </div>
+        )}
+
         {step === 1 && (
           <section>
             <h1 ref={headingRef} tabIndex={-1}>
@@ -264,18 +277,6 @@ export function OnboardingScreen() {
                 </div>
               </details>
             </div>
-
-            {lastError && (
-              <div
-                role="alert"
-                style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem', marginTop: '0.75rem' }}
-              >
-                {lastError.message}
-                <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
-                  閉じる
-                </button>
-              </div>
-            )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
               <button type="button" onClick={() => setStep(2)} disabled={busy}>

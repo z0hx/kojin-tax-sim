@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ImportError } from '../errors';
-import { CURRENT_SCHEMA_VERSION, migrate } from '../migration';
-import { emptyAppData } from '../types';
+import { migrate } from '../migration';
+import { CURRENT_SCHEMA_VERSION, emptyAppData } from '../types';
 
 describe('migrate (T-27 不正なJSON)', () => {
   it('schemaVersionが欠落している場合は例外を投げる', () => {
@@ -39,13 +39,21 @@ describe('migrate (T-28 移行フィクスチャ)', () => {
     expect(migrate(fixture)).toEqual(fixture);
   });
 
-  it('v1→v2: furusato.donationsが無い旧データはschemaVersion=2かつdonations=[]へ移行される(FR-21)', () => {
-    const legacyProfile = validYearProfile();
+  it('furusato.donationsを持たない旧形式データは移行されず例外になる(#36: v1で確定したためv1→v2の移行は無い)', () => {
+    const legacyProfile: Record<string, unknown> = validYearProfile();
+    legacyProfile.furusato = { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9 };
     const data = { schemaVersion: 1, persons: [personWithYear(legacyProfile)], activePersonId: 'p1', appSettings: {} };
-    const migrated = migrate(data);
-    expect(migrated.schemaVersion).toBe(2);
-    expect(migrated.persons[0].years[2026].furusato.donations).toEqual([]);
-    expect(migrated.persons[0].years[2026].furusato.donatedAmount).toBe(0);
+    expect(() => migrate(data)).toThrow(ImportError);
+  });
+
+  it('現行スキーマは1(emptyAppDataが書き込む値と一致する)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(1);
+    expect(emptyAppData().schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('schemaVersionが0など移行手順の無い過去バージョンは例外になる', () => {
+    const data = { schemaVersion: 0, persons: [], activePersonId: null, appSettings: {} };
+    expect(() => migrate(data)).toThrow(ImportError);
   });
 });
 
@@ -60,7 +68,7 @@ function validYearProfile() {
       otherSalaryIncome: 0,
     },
     deductions: { lifeInsurance: {}, earthquakeInsurance: { long: 0, short: 0 }, medical: { paid: 0, reimbursed: 0, selfMedication: 0, mode: 'auto' }, ideco: 0, dependents: [], isSingleParent: false, disabilityDeductions: [] },
-    furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9 },
+    furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9, donations: [] },
   };
 }
 
