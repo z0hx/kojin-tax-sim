@@ -1,19 +1,40 @@
 import { ImportError } from './errors';
 import type { AppData } from './types';
 
-/** 03詳細設計書§5.3: バージョン番号ごとの移行関数。まだ移行は存在しない(現行v1のみ) */
+/** 03詳細設計書§5.3: バージョン番号ごとの移行関数 */
 type Migration = (data: unknown) => unknown;
-
-const MIGRATIONS: Record<number, Migration> = {
-  // 1 → 2 の例(まだ存在しない):
-  // 2: (d) => ({ ...(d as object), schemaVersion: 2 }),
-};
-
-export const CURRENT_SCHEMA_VERSION = 1;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
+
+/** v1→v2: FR-21(寄附実績記録)でfurusato.donationsを追加。既存データには存在しないため空配列で補う */
+function migrateV1ToV2(data: unknown): unknown {
+  if (!isPlainObject(data) || !Array.isArray(data.persons)) return data;
+  return {
+    ...data,
+    schemaVersion: 2,
+    persons: data.persons.map((p) => {
+      if (!isPlainObject(p) || !isPlainObject(p.years)) return p;
+      const years = Object.fromEntries(
+        Object.entries(p.years).map(([year, profile]) => {
+          if (!isPlainObject(profile) || !isPlainObject(profile.furusato)) return [year, profile];
+          return [
+            year,
+            { ...profile, furusato: { donations: [], ...profile.furusato } },
+          ];
+        })
+      );
+      return { ...p, years };
+    }),
+  };
+}
+
+const MIGRATIONS: Record<number, Migration> = {
+  2: migrateV1ToV2,
+};
+
+export const CURRENT_SCHEMA_VERSION = 2;
 
 function isNonNegativeFiniteNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0;
@@ -59,6 +80,26 @@ function assertYearProfile(profile: unknown, personId: string, year: string): vo
   }
   if (!isPlainObject(profile.furusato) || !isNonNegativeFiniteNumber(profile.furusato.donatedAmount)) {
     throw new ImportError(`${where}のfurusato.donatedAmountが不正です`);
+  }
+  if (!Array.isArray(profile.furusato.donations)) {
+    throw new ImportError(`${where}のfurusato.donationsが配列ではありません`);
+  }
+  const donationIds = new Set<string>();
+  for (const d of profile.furusato.donations as unknown[]) {
+    if (
+      !isPlainObject(d) ||
+      typeof d.id !== 'string' ||
+      d.id === '' ||
+      typeof d.municipalityName !== 'string' ||
+      !isNonNegativeFiniteNumber(d.amount) ||
+      typeof d.date !== 'string'
+    ) {
+      throw new ImportError(`${where}の寄附実績データに不正な値が含まれています`);
+    }
+    if (donationIds.has(d.id)) {
+      throw new ImportError(`${where}の寄附実績データのidが重複しています`);
+    }
+    donationIds.add(d.id);
   }
 }
 

@@ -8,6 +8,7 @@ import type { TaxParamsError } from '../taxParams/loader';
 import type {
   ActualValues,
   DeductionInput,
+  DonationRecord,
   FurusatoCapMode,
   FurusatoInput,
   HousingLoanInput,
@@ -71,6 +72,10 @@ export interface AppStoreActions {
    *  無く所得が算出できない場合はlastErrorをセットする(何もコピーしない)。 */
   linkSpouseIncome(spouseId: string): void;
   updateFurusatoInput(patch: Partial<FurusatoInput>): void;
+  /** FR-21。寄附実績(自治体・金額・日付)を追記し、furusato.donatedAmountを合計額へ更新する */
+  recordDonation(entry: Omit<DonationRecord, 'id'>): void;
+  /** FR-21。指定idの寄附実績を削除し、furusato.donatedAmountを合計額へ更新する */
+  removeDonation(id: string): void;
   updateMunicipality(patch: Partial<MunicipalityConfig>): void;
   /** 新規人物を追加し、その人物に切り替える。municipalityを省略した場合は標準税率(既定値)を使う。戻り値は新規人物のid */
   addPerson(displayName: string, color: string, municipality?: MunicipalityConfig): string;

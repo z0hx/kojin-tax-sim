@@ -16,7 +16,8 @@ export type ScreenId =
   | 'simulation'
   | 'actuals'
   | 'scenarioComparison'
-  | 'householdView';
+  | 'householdView'
+  | 'donations';
 
 interface NavigationState {
   screen: ScreenId;

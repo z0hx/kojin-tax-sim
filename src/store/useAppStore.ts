@@ -1,5 +1,6 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { buildCalculationResult } from '../domain/engine';
+import { withDonations } from '../domain/donations';
 import { ValidationError, type YearProfile } from '../domain/types';
 import { loadAppData, saveAppData, clearAppData } from '../persistence/repository';
 import { emptyAppData, type AppData, type Person } from '../persistence/types';
@@ -75,7 +76,7 @@ function buildBlankYearProfile(year: number, defaults: Person['defaults']): Year
       isSingleParent: false,
       disabilityDeductions: [],
     },
-    furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: defaults.safetyRatio },
+    furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: defaults.safetyRatio, donations: [] },
   };
 }
 
@@ -298,7 +299,8 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       }
       const cloned = structuredClone(prev);
       cloned.year = year;
-      cloned.furusato = { ...cloned.furusato, donatedAmount: 0 };
+      // 寄附実績は年度ごとの記録のため、前年分を引き継がず新年度は空にする(FR-21)
+      cloned.furusato = withDonations(cloned.furusato, []);
       const newAppData = putYearProfile(state.appData, personIdx, year, cloned);
       set({ appData: newAppData, activeYear: year, calculationResult: null });
       saveQueue.schedule(newAppData);
@@ -338,6 +340,18 @@ function createStoreImpl(set: Set, get: Get): AppStore {
     },
     updateFurusatoInput(patch) {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, furusato: { ...profile.furusato, ...patch } }));
+    },
+    recordDonation(entry) {
+      updateActiveYearProfile(set, get, (profile) => {
+        const donations = [...profile.furusato.donations, { ...entry, id: crypto.randomUUID() }];
+        return { ...profile, furusato: withDonations(profile.furusato, donations) };
+      });
+    },
+    removeDonation(id) {
+      updateActiveYearProfile(set, get, (profile) => {
+        const donations = profile.furusato.donations.filter((d) => d.id !== id);
+        return { ...profile, furusato: withDonations(profile.furusato, donations) };
+      });
     },
     updateMunicipality(patch) {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, municipality: { ...profile.municipality, ...patch } }));

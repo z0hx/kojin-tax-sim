@@ -62,7 +62,7 @@ describe('selectHouseholdSummary', () => {
   });
 
   it('taxParamsがキャッシュ済みなら各人物の上限額を計算して返す', () => {
-    const p1 = person('p1', '本人', { 2026: makeProfile({ year: 2026, furusato: { method: 'oneStop', donatedAmount: 10_000, safetyRatio: 0.9 } }) });
+    const p1 = person('p1', '本人', { 2026: makeProfile({ year: 2026, furusato: { method: 'oneStop', donatedAmount: 10_000, safetyRatio: 0.9, donations: [] } }) });
     const p2 = person('p2', '配偶者', { 2026: makeProfile({ year: 2026 }) });
     const appData = appDataWith(p1, p2);
     const summary = selectHouseholdSummary({ appData, taxParams: { 2026: TAX_PARAMS_2026 } }, 2026);

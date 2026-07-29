@@ -38,8 +38,14 @@ export function checkW03(ctx: WarningContext): Warning | null {
   };
 }
 
+/** 医療費控除の入力がある場合は確定申告が必要になり、ワンストップ特例は無効になる(FR-14)。
+ *  checkW04とFR-21(domain/donations.ts)のワンストップ特例可否判定の両方が参照する共通条件 */
+export function requiresConfirmedFiling(profile: YearProfile): boolean {
+  return profile.deductions.medical.paid > 0;
+}
+
 export function checkW04(ctx: WarningContext): Warning | null {
-  if (!(ctx.profile.deductions.medical.paid > 0 && ctx.profile.furusato.method === 'oneStop')) return null;
+  if (!(requiresConfirmedFiling(ctx.profile) && ctx.profile.furusato.method === 'oneStop')) return null;
   return { id: 'W-04', severity: 'critical', messageKey: 'warning.oneStopInvalidWithMedical' };
 }
 
