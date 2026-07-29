@@ -298,6 +298,45 @@ describe('useAppStore', () => {
       expect(s.appData!.persons[0].years[2026]).toBeDefined();
       expect(s.calculationResult).not.toBeNull();
     });
+
+    it('作成済みの年度は上書きせずlastErrorをセットする(Issue #49: 任意の年分を指定できるようになったため)', async () => {
+      store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2025);
+      store.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
+      await store.getState().createBlankYear(2026);
+
+      await store.getState().copyYearFromPrevious(2025);
+
+      const s = store.getState();
+      expect(s.appData!.persons[0].years[2025].income.otherSalaryIncome).toBe(6_000_000);
+      expect(s.lastError?.message).toContain('2025年分のデータは既に作成されています');
+    });
+
+    it('createBlankYearも作成済みの年度を上書きしない(Issue #49)', async () => {
+      store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateIncome({ otherSalaryIncome: 4_000_000 });
+
+      await store.getState().createBlankYear(2026);
+
+      const s = store.getState();
+      expect(s.appData!.persons[0].years[2026].income.otherSalaryIncome).toBe(4_000_000);
+      expect(s.lastError?.message).toContain('2026年分のデータは既に作成されています');
+    });
+
+    it('過去年分の作成では前年が無いため人物の既定値からの空データになる(Issue #49)', async () => {
+      store.getState().addPerson('本人', '#111111');
+      await store.getState().createBlankYear(2026);
+      store.getState().updateIncome({ otherSalaryIncome: 7_000_000 });
+
+      await store.getState().copyYearFromPrevious(2025);
+
+      const s = store.getState();
+      expect(s.activeYear).toBe(2025);
+      // 後の年度(2026)の内容が混ざらないこと
+      expect(s.appData!.persons[0].years[2025].income.otherSalaryIncome).toBe(0);
+      expect(s.calculationResult).not.toBeNull();
+    });
   });
 
   describe('deletePerson', () => {

@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadTaxParams } from '../loader';
+import { SUPPORTED_TAX_YEARS } from '../supportedYears';
 
 const PARAMS_DIR = join(process.cwd(), 'public', 'taxParams');
 
@@ -30,6 +31,13 @@ afterEach(() => {
 describe('public/taxParams の実データ', () => {
   it('年分ファイルが1件以上存在する', () => {
     expect(yearFiles.length).toBeGreaterThan(0);
+  });
+
+  // Issue #49: 年度データを作成できる年分はSUPPORTED_TAX_YEARSで決まる。ファイルを追加したのに
+  // 一覧を更新し忘れると、その年分をアプリから作成できないまま気づかない
+  it('SUPPORTED_TAX_YEARSが年分ファイルの実体と一致する', () => {
+    const yearsFromFiles = yearFiles.map((name) => Number(name.replace('.json', ''))).sort((a, b) => a - b);
+    expect([...SUPPORTED_TAX_YEARS].sort((a, b) => a - b)).toEqual(yearsFromFiles);
   });
 
   it.each(yearFiles)('%s がloadTaxParamsの検証を通る', async (fileName) => {
