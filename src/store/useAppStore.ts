@@ -10,6 +10,7 @@ import { StorageError } from '../persistence/errors';
 import { loadTaxParams } from '../taxParams/loader';
 import type { TaxParams } from '../taxParams/schema';
 import * as saveQueue from './saveQueue';
+import { selectSpouseTotalIncome } from './selectors';
 import type { AppError, AppStore, AppStoreState, StoreCalculationResult } from './types';
 
 type Set = (partial: Partial<AppStoreState> | ((state: AppStoreState) => Partial<AppStoreState>)) => void;
@@ -316,6 +317,24 @@ function createStoreImpl(set: Set, get: Get): AppStore {
     },
     updateActuals(actuals) {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, actuals: actuals ?? undefined }));
+    },
+    linkSpouseIncome(spouseId) {
+      const state = get();
+      if (state.activeYear === null || spouseId === state.activePersonId) return;
+      const income = selectSpouseTotalIncome({ appData: state.appData, taxParams: state.taxParams }, spouseId, state.activeYear);
+      if (income === null) {
+        set({
+          lastError: new ValidationError([
+            { field: 'spouseId', rule: 'yearDataRequired', message: `対象の人物に${state.activeYear}年分のデータが無いため連携できません。先に対象の人物の収入を入力してください。` },
+          ]),
+        });
+        return;
+      }
+      updateActiveYearProfile(set, get, (profile) => ({
+        ...profile,
+        deductions: { ...profile.deductions, spouse: { ...profile.deductions.spouse, totalIncome: income } },
+      }));
+      set({ lastError: null });
     },
     updateFurusatoInput(patch) {
       updateActiveYearProfile(set, get, (profile) => ({ ...profile, furusato: { ...profile.furusato, ...patch } }));
