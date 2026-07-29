@@ -123,6 +123,27 @@ function friendlySaveBlobError(e: unknown, cancelMessage: string, failureMessage
   return new StorageError(name === 'AbortError' ? cancelMessage : failureMessage, e);
 }
 
+/**
+ * 年度データの新規作成が既存の年度を上書きしようとしていたらlastErrorをセットしtrueを返す(Issue #49)。
+ *
+ * 過去年分を作成できるようにしたことで、年度の作成は「常に最新+1」ではなく任意の年分を指定する操作に
+ * なった。UIは作成済みの年分を選択肢から除いているが、入力済みのデータを丸ごと失う操作であるため、
+ * store側でも防ぐ(二重送信・インポート直後の古い画面状態などでUIの前提が崩れる余地を残さない)。
+ */
+function existingYearError(person: Person, year: number, set: Set): boolean {
+  if (!person.years[year]) return false;
+  set({
+    lastError: new ValidationError([
+      {
+        field: 'year',
+        rule: 'yearAlreadyExists',
+        message: `${year}年分のデータは既に作成されています。上書きを防ぐため作成しませんでした(年度切替で選択してください)。`,
+      },
+    ]),
+  });
+  return true;
+}
+
 function persistUiSelection(personId: string | null, year: number | null): void {
   const current = loadUiSettings();
   saveUiSettings({ ...current, lastActivePersonId: personId, lastActiveYear: year });
@@ -307,16 +328,13 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       await finalizeAfterYearSwitch(set, get, state.activePersonId, year);
     },
 
-    // 注意: 既存のyears[year]があれば無条件で上書きする。現状の呼び出し元(IncomeScreenの初年度作成導線)は
-    // activeYearがnull(=対象人物にまだ年度データが1件も無い)ときにしか呼ばないため上書きは起こらないが、
-    // 将来ダッシュボード等で年度切替/追加UIからも呼ぶ場合は、既存年度への誤上書きを防ぐガード
-    // (確認ダイアログ等)を呼び出し側に追加すること。
     async createBlankYear(year) {
       const state = get();
       if (!state.appData || !state.activePersonId) return;
       const personIdx = state.appData.persons.findIndex((p) => p.id === state.activePersonId);
       if (personIdx === -1) return;
       const person = state.appData.persons[personIdx];
+      if (existingYearError(person, year, set)) return;
       const blank = buildBlankYearProfile(year, person.defaults);
       const newAppData = putYearProfile(state.appData, personIdx, year, blank);
       set({ appData: newAppData, activeYear: year, calculationResult: null });
@@ -331,6 +349,7 @@ function createStoreImpl(set: Set, get: Get): AppStore {
       const personIdx = state.appData.persons.findIndex((p) => p.id === state.activePersonId);
       if (personIdx === -1) return;
       const person = state.appData.persons[personIdx];
+      if (existingYearError(person, year, set)) return;
       const prev = person.years[year - 1];
       if (!prev) {
         await get().createBlankYear(year);

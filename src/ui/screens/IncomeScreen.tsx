@@ -5,6 +5,7 @@ import { estimateAnnualIncome, monthsInRange, sumNonTaxableBenefits } from '../.
 import { MonthlyIncomeGrid } from '../components/MonthlyIncomeGrid';
 import { LeavePeriodEditor } from '../components/LeavePeriodEditor';
 import { BonusEditor } from '../components/BonusEditor';
+import { SUPPORTED_TAX_YEARS, latestSupportedTaxYear } from '../../taxParams/supportedYears';
 
 function parseNonNegativeInt(input: string): number | null {
   const n = Number(input);
@@ -28,24 +29,18 @@ export function IncomeScreen() {
   const createBlankYear = useAppStore((s) => s.createBlankYear);
   const requestPersistence = useAppStore((s) => s.requestPersistence);
 
-  const [newYear, setNewYear] = useState(String(new Date().getFullYear()));
+  // 作成できるのは税制パラメータを収録している年分のみ(Issue #49)。既定値は最新の収録年分
+  const [newYear, setNewYear] = useState(latestSupportedTaxYear());
   const [creating, setCreating] = useState(false);
-  const [yearError, setYearError] = useState<string | null>(null);
 
   const person = appData?.persons.find((p) => p.id === activePersonId);
   const profile = person && activeYear !== null ? person.years[activeYear] : undefined;
 
   async function handleCreateYear() {
-    const year = Number(newYear);
-    if (!Number.isInteger(year) || year < 2000) {
-      setYearError('年度は2000以上の整数で入力してください');
-      return;
-    }
-    setYearError(null);
     setCreating(true);
     try {
       // 02仕様書§2.4.2: 初回の年度データ保存時にも永続化を要求する(オンボーディング完了時とは別経路)
-      await createBlankYear(year);
+      await createBlankYear(newYear);
       await requestPersistence();
     } finally {
       setCreating(false);
@@ -65,23 +60,21 @@ export function IncomeScreen() {
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <label>
             年度
-            <input
-              type="text"
-              inputMode="numeric"
-              value={newYear}
-              onChange={(e) => setNewYear(e.target.value)}
-              style={{ marginLeft: '0.25rem', width: '6rem' }}
-            />
+            <select aria-label="年度" value={newYear} onChange={(e) => setNewYear(Number(e.target.value))} style={{ marginLeft: '0.25rem' }}>
+              {SUPPORTED_TAX_YEARS.map((y) => (
+                <option key={y} value={y}>
+                  {y}年分
+                </option>
+              ))}
+            </select>
           </label>
           <button type="button" onClick={handleCreateYear} disabled={creating}>
             {creating ? '作成中…' : '年度データを作成'}
           </button>
         </div>
-        {yearError && (
-          <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '0.85rem' }}>
-            {yearError}
-          </p>
-        )}
+        <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+          過去の年分も選べます(源泉徴収票・住民税決定通知書との検算に使えます)。選べるのは税制パラメータを収録している年分のみです。
+        </p>
       </main>
     );
   }

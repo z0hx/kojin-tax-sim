@@ -153,9 +153,33 @@ describe('DashboardScreen(S-01)', () => {
     await waitFor(() => expect(screen.getByText(/最終エクスポートから40日経過しています/)).toBeInTheDocument());
   });
 
-  it('年度切替ドロップダウンで既存の別年度に切り替えられ、次年度追加ボタンで新しい年度が作成される', async () => {
+  it('年度切替ドロップダウンで既存の別年度に切り替えられ、未作成の過去年分を追加できる(Issue #49)', async () => {
     installStoragePersistMock();
     const personId = useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    await waitFor(() => expect(screen.getByRole('heading', { name: /2026年分/ })).toBeInTheDocument());
+
+    // 未作成なのは2025年分のみ。過去年分でも追加できる
+    await userEvent.selectOptions(screen.getByLabelText('追加する年分'), '2025');
+    await userEvent.click(screen.getByRole('button', { name: '追加' }));
+    await waitFor(() => expect(useAppStore.getState().activeYear).toBe(2025));
+    await waitFor(() => {
+      const person = useAppStore.getState().appData!.persons.find((p) => p.id === personId)!;
+      expect(person.years[2025]).toBeDefined();
+    });
+    // 過去年分であることが分かる注記が出る
+    expect(screen.getByText(/過去の年分\(2025年分\)を表示しています/)).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('年度切替'), '2026');
+    await waitFor(() => expect(useAppStore.getState().activeYear).toBe(2026));
+  });
+
+  it('収録済みの年分をすべて作成済みなら追加UIは出ず、その旨を表示する(Issue #49)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
     await useAppStore.getState().createBlankYear(2025);
     await flushNow();
     await useAppStore.getState().copyYearFromPrevious(2026);
@@ -164,18 +188,11 @@ describe('DashboardScreen(S-01)', () => {
     await renderAppAndWaitLoaded();
     await waitFor(() => expect(screen.getByRole('heading', { name: /2026年分/ })).toBeInTheDocument());
 
-    await userEvent.selectOptions(screen.getByLabelText('年度切替'), '2025');
-    await waitFor(() => expect(useAppStore.getState().activeYear).toBe(2025));
-
-    await userEvent.click(screen.getByRole('button', { name: '2027年分を追加' }));
-    await waitFor(() => expect(useAppStore.getState().activeYear).toBe(2027));
-    await waitFor(() => {
-      const person = useAppStore.getState().appData!.persons.find((p) => p.id === personId)!;
-      expect(person.years[2027]).toBeDefined();
-    });
+    expect(screen.queryByLabelText('追加する年分')).not.toBeInTheDocument();
+    expect(screen.getByText(/はすべて作成済みです/)).toBeInTheDocument();
   });
 
-  it('次年度追加ボタンは処理完了までdisabledになり、連打による重複実行を防ぐ(実装後レビュー対応)', async () => {
+  it('年分の追加ボタンは処理完了までdisabledになり、連打による重複実行を防ぐ(実装後レビュー対応)', async () => {
     installStoragePersistMock();
     useAppStore.getState().addPerson('本人', '#111111');
     await useAppStore.getState().createBlankYear(2025);
@@ -188,7 +205,7 @@ describe('DashboardScreen(S-01)', () => {
     useAppStore.setState({ copyYearFromPrevious: copySpy });
 
     await renderAppAndWaitLoaded();
-    const button = await screen.findByRole('button', { name: '2026年分を追加' });
+    const button = await screen.findByRole('button', { name: '追加' });
 
     fireEvent.click(button);
     expect(copySpy).toHaveBeenCalledTimes(1);

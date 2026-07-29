@@ -8,6 +8,7 @@ import { daysSince } from '../dateUtils';
 import { formatRateAsPercent } from '../parseAmount';
 import { compareWithActuals } from '../../domain/actuals';
 import { isTaxParamsStale } from '../../taxParams/loader';
+import { SUPPORTED_TAX_YEARS } from '../../taxParams/supportedYears';
 
 /** 安全率(FR-13)の可変範囲。0%まで許すと推奨額が常に0円になり画面の意味が失われるため、実用範囲に絞る */
 const MIN_SAFETY_PERCENT = 50;
@@ -25,10 +26,11 @@ function toReiwaYear(year: number): number {
  * FR-28(バックアップ督促)はS-09データ管理画面と同一条件(lastExportedAtがnull、または30日以上経過)で
  * 判定し、起動画面である本画面にも表示する。
  *
- * 年度切替は「既存年度への切替」と「次年度(最新年度+1)の追加」のみを提供する。任意の年度番号を
- * 直接指定するUIは設けない(createBlankYearは既存年度を無条件に上書きするため、UIから呼ぶ場合は
- * 対象年度が未作成であることを保証する必要がある。「常に最新+1のみ追加可能」という制約により、
- * 既存年度を誤って上書きする経路自体が存在しなくなる)。
+ * 年度切替は「既存年度への切替」と「年分の追加」を提供する。追加できるのは税制パラメータを収録している
+ * 年分(SUPPORTED_TAX_YEARS)のうち、その人物にまだ作成されていないものだけとする(Issue #49)。
+ * 過去年分も作成できる必要があるため「最新年度+1のみ」という以前の制約は外したが、選択肢を
+ * 未作成の年分に限ることで既存年度を誤って上書きする経路は引き続き存在しない(store側にも
+ * 上書き防止のガードがある)。
  */
 export function DashboardScreen() {
   const navigate = useNavigation((s) => s.navigate);
@@ -45,6 +47,8 @@ export function DashboardScreen() {
   // 「次年度を追加」ボタンの二重送信防止(実装後レビュー対応: IncomeScreenの年度作成ボタンと同様、
   // 非同期処理(copyYearFromPrevious)の完了前に連打されると同じ年度への上書き複製が重複実行されうる)。
   const [addingYear, setAddingYear] = useState(false);
+  // 「追加する年分」の選択。null相当(未選択)のときは追加可能な年分の先頭を使う
+  const [yearToAddState, setYearToAddState] = useState<number | null>(null);
 
   const person = appData?.persons.find((p) => p.id === activePersonId);
   const profile = person && activeYear !== null ? person.years[activeYear] : undefined;
@@ -60,7 +64,10 @@ export function DashboardScreen() {
   const years = Object.keys(person.years)
     .map(Number)
     .sort((a, b) => a - b);
-  const nextYear = years.length > 0 ? Math.max(...years) + 1 : new Date().getFullYear();
+  // 収録済みの年分のうち、この人物にまだ作成されていないもの(Issue #49: 過去年分も対象)
+  const addableYears = SUPPORTED_TAX_YEARS.filter((y) => !person.years[y]).sort((a, b) => a - b);
+  // 選択中の年分が追加済みになった場合(追加直後)は残りの先頭へ戻す
+  const yearToAdd = yearToAddState !== null && addableYears.includes(yearToAddState) ? yearToAddState : (addableYears[0] ?? null);
 
   if (!profile) {
     return (
@@ -152,25 +159,53 @@ export function DashboardScreen() {
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            disabled={addingYear}
-            onClick={async () => {
-              setAddingYear(true);
-              try {
-                await copyYearFromPrevious(nextYear);
-              } finally {
-                setAddingYear(false);
-              }
-            }}
-          >
-            {nextYear}年分を追加
-          </button>
+          {yearToAdd !== null ? (
+            <>
+              <label>
+                年分を追加{' '}
+                <select aria-label="追加する年分" value={yearToAdd} onChange={(e) => setYearToAddState(Number(e.target.value))}>
+                  {addableYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y}年分
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={addingYear}
+                onClick={async () => {
+                  setAddingYear(true);
+                  try {
+                    // 前年データがあればコピー、無ければ人物の既定値からの空データになる。
+                    // 過去年分の追加では通常は後者
+                    await copyYearFromPrevious(yearToAdd);
+                  } finally {
+                    setAddingYear(false);
+                  }
+                }}
+              >
+                追加
+              </button>
+            </>
+          ) : (
+            <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+              税制パラメータを収録している年分({SUPPORTED_TAX_YEARS.join('・')}年)はすべて作成済みです
+            </span>
+          )}
           <PrintButton />
         </div>
       </div>
 
       {errorBanner}
+
+      {/* Issue #49: 過去年分は検算のために入力するもので、上限額・残枠は寄附の判断に使う値ではない。
+          今年分と同じ画面で同じ見た目のまま出すと取り違えるため、表示中の年分が過去であることを明示する */}
+      {profile.year < new Date().getFullYear() && (
+        <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+          過去の年分({profile.year}年分)を表示しています。ふるさと納税の上限額・残枠は検算用の参考値です。
+        </p>
+      )}
 
       {actualsMismatch && (
         <p

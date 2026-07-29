@@ -60,14 +60,30 @@ describe('IncomeScreen(S-02)', () => {
     const main = await openIncomeScreen();
 
     expect(within(main).getByText('この人物にはまだ年度データがありません。年度を作成してください。')).toBeInTheDocument();
-    const yearInput = within(main).getByLabelText('年度');
-    await userEvent.clear(yearInput);
-    await userEvent.type(yearInput, '2026');
+    await userEvent.selectOptions(within(main).getByLabelText('年度'), '2026');
     await userEvent.click(within(main).getByRole('button', { name: '年度データを作成' }));
 
     await waitFor(() => expect(within(main).getByText('月次収入・社会保険料')).toBeInTheDocument());
     expect(useAppStore.getState().activeYear).toBe(2026);
     await waitFor(() => expect(persist).toHaveBeenCalled());
+  });
+
+  it('初年度として過去の年分を選んで作成できる(Issue #49: 検算のために過去年分が必要)', async () => {
+    installStoragePersistMock();
+    const personId = useAppStore.getState().addPerson('本人', '#111111');
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    const main = await openIncomeScreen();
+
+    await userEvent.selectOptions(within(main).getByLabelText('年度'), '2025');
+    await userEvent.click(within(main).getByRole('button', { name: '年度データを作成' }));
+
+    await waitFor(() => expect(useAppStore.getState().activeYear).toBe(2025));
+    const person = useAppStore.getState().appData!.persons.find((p) => p.id === personId)!;
+    expect(person.years[2025]).toBeDefined();
+    // 税制パラメータを収録している年分のため計算まで到達する
+    await waitFor(() => expect(useAppStore.getState().calculationResult).not.toBeNull());
   });
 
   it('月次グリッドへの入力がstoreのincome.monthlyへ反映される', async () => {

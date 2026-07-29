@@ -54,9 +54,12 @@ export interface AppStoreActions {
   loadInitialData(): Promise<void>;
   setActivePerson(personId: string): Promise<void>;
   setActiveYear(year: number): Promise<void>;
-  /** 空のYearProfileを新規作成する。新規人物の初年度や、前年データが無い年度の作成に使う */
+  /** 空のYearProfileを新規作成する。新規人物の初年度や、前年データが無い年度の作成に使う。
+   *  対象年のデータが既にある場合は上書きせずlastErrorをセットする(Issue #49) */
   createBlankYear(year: number): Promise<void>;
-  /** 前年のYearProfileをコピーして作成する。前年データが無ければcreateBlankYearにフォールバックする */
+  /** 前年のYearProfileをコピーして作成する。前年データが無ければcreateBlankYearにフォールバックする
+   *  (過去年分の作成では前年が無いことが通常であり、その場合は人物の既定値からの空データになる)。
+   *  対象年のデータが既にある場合は上書きせずlastErrorをセットする(Issue #49) */
   copyYearFromPrevious(year: number): Promise<void>;
   updateIncome(patch: Partial<IncomeInput>): void;
   updateDeductions(patch: Partial<DeductionInput>): void;
