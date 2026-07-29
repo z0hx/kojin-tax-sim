@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
-import { runScenario, compareScenarios, type ScenarioOverride } from '../../domain/scenario';
+import { runScenario, compareScenarios, optimizeAcrossYears, type ScenarioOverride } from '../../domain/scenario';
+import { selectEligibleYearProfiles } from '../../store/selectors';
 import { parseNonNegativeInt, parseOptionalNonNegativeInt } from '../parseAmount';
 
 interface ScenarioForm {
@@ -118,6 +119,16 @@ export function ScenarioComparisonScreen() {
 
   const variants = scenarios.map((override) => ({ override, result: runScenario(profile, override, params) }));
   const comparisonRows = compareScenarios(calculationResult, variants);
+
+  // FR-22複数年最適化: 税制パラメータが読み込み済みの年度のみを対象にする
+  const multiYearProfiles = person ? selectEligibleYearProfiles({ appData, taxParams }, person.id) : [];
+  const allocation =
+    multiYearProfiles.length >= 2
+      ? optimizeAcrossYears({
+          profiles: multiYearProfiles,
+          paramsByYear: taxParams,
+        })
+      : null;
 
   function handleAdd() {
     const result = toOverride(form);
@@ -273,6 +284,45 @@ export function ScenarioComparisonScreen() {
             ))}
           </tbody>
         </table>
+      </section>
+
+      <section style={{ marginTop: '1.5rem' }}>
+        <h2 style={{ fontSize: '1rem' }}>複数年配分の最適化(FR-22)</h2>
+        {allocation === null ? (
+          <p style={{ color: 'var(--color-muted)' }}>
+            複数年の配分提案には、税制パラメータを読み込み済みの年度が2年分以上必要です。
+          </p>
+        ) : (
+          <>
+            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>年度</th>
+                  <th style={thStyle}>上限額</th>
+                  <th style={thStyle}>現在の寄附予定額</th>
+                  <th style={thStyle}>推奨配分</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allocation.years.map((year, i) => (
+                  <tr key={year}>
+                    <td style={tdStyle}>{year}年分</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <span className="amount">{allocation.perYearLimit[i].toLocaleString()}円</span>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <span className="amount">{multiYearProfiles[i].furusato.donatedAmount.toLocaleString()}円</span>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700 }}>
+                      <span className="amount">{allocation.suggestedDonation[i].toLocaleString()}円</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>{allocation.rationale}</p>
+          </>
+        )}
       </section>
     </main>
   );

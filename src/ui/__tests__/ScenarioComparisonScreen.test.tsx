@@ -193,4 +193,46 @@ describe('ScenarioComparisonScreen(S-07)', () => {
     expect(useAppStore.getState().calculationResult!.furusato.limitAmount).toBe(before);
     expect(useAppStore.getState().appData!.persons[0].years[2026]!.furusato.donatedAmount).toBe(beforeDonated);
   });
+
+  describe('複数年配分の最適化(Issue #18完了条件: 2年分の配分シミュレーション結果が比較表示される)', () => {
+    it('年度データが1年分しかない場合は案内メッセージを表示する', async () => {
+      await setupProfile();
+      await renderAppAndWaitLoaded();
+      const main = await openScenarioComparisonScreen();
+
+      expect(within(main).getByText(/2年分以上必要です/)).toBeInTheDocument();
+    });
+
+    it('2年分の年度データがある場合、上限額の大きい年へ寄附予定額が優先配分される', async () => {
+      installStoragePersistMock();
+      useAppStore.getState().addPerson('本人', '#111111');
+      await useAppStore.getState().createBlankYear(2025);
+      useAppStore.getState().updateIncome({ otherSalaryIncome: 6_000_000 });
+      useAppStore.getState().recordDonation({ municipalityName: '横浜市', amount: 30_000, date: '2025-06-01' });
+      await flushNow();
+      await useAppStore.getState().createBlankYear(2026); // 収入0円のまま(育休相当の低所得年を模する)
+      useAppStore.getState().recordDonation({ municipalityName: '横浜市', amount: 30_000, date: '2026-06-01' });
+      await flushNow();
+
+      await renderAppAndWaitLoaded();
+      const main = await openScenarioComparisonScreen();
+
+      await waitFor(() => expect(within(main).getByText('2025年分')).toBeInTheDocument());
+      expect(within(main).getByText('2026年分')).toBeInTheDocument();
+
+      const row2025 = within(main).getByText('2025年分').closest('tr')!;
+      const row2026 = within(main).getByText('2026年分').closest('tr')!;
+      const limit2025 = Number(within(row2025).getAllByText(/円$/)[0].textContent!.replace(/[^\d]/g, ''));
+      const limit2026 = Number(within(row2026).getAllByText(/円$/)[0].textContent!.replace(/[^\d]/g, ''));
+      const suggested2025 = Number(within(row2025).getAllByText(/円$/)[2].textContent!.replace(/[^\d]/g, ''));
+      const suggested2026 = Number(within(row2026).getAllByText(/円$/)[2].textContent!.replace(/[^\d]/g, ''));
+
+      expect(limit2025).toBeGreaterThan(limit2026);
+      expect(limit2026).toBe(0); // 収入0円の年は上限額も0円
+      // 寄附予定額の合計(60,000円)は変えず、上限額の大きい2025年分へ全額を寄せる
+      expect(suggested2025).toBe(60_000);
+      expect(suggested2026).toBe(0);
+      expect(within(main).getByText(/上限額が最も大きい2025年分/)).toBeInTheDocument();
+    });
+  });
 });

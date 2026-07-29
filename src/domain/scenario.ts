@@ -1,4 +1,5 @@
 import { buildCalculationResult } from './engine';
+import { findFurusatoLimit } from './furusato';
 import { monthsInRange } from './income';
 import { floorYen, type CalculationResult, type Yen, type YearProfile } from './types';
 import type { TaxParams } from '../taxParams/schema';
@@ -137,4 +138,87 @@ export function compareScenarios(
     limitAmount: result.furusato.limitAmount,
     diffFromBase: (result.furusato.limitAmount - baseResult.furusato.limitAmount) as Yen,
   }));
+}
+
+/** FR-22複数年最適化(03詳細設計書§3.11)。対象年(例: 今年・来年)のYearProfileと税制パラメータ */
+export interface MultiYearAllocationInput {
+  /** 対象年のYearProfile。各年のfurusato.donatedAmountの合計が、配分し直す寄附予定額の総額になる */
+  profiles: YearProfile[];
+  paramsByYear: Record<number, TaxParams>;
+}
+
+export interface MultiYearAllocation {
+  years: number[];
+  perYearLimit: Yen[];
+  /** 各年に配分する推奨寄附額。合計は入力時点の寄附予定額の合計(各年donatedAmountの合計)と等しい */
+  suggestedDonation: Yen[];
+  rationale: string;
+}
+
+/**
+ * 複数年にまたがる寄附額の配分を最適化する(FR-22)。
+ *
+ * 自己負担額は寄附額が各年の上限以下である限りほぼ一定(≈2,000円)で、寄附する年数が増えるごとに
+ * その固定額が積み増される(02仕様書§4.2)。そのため、寄附予定額の合計(Σ各年のdonatedAmount)を
+ * 変えずに済むなら、上限額の大きい年から順に埋めて「寄附する年数」自体を減らすほうが総自己負担を
+ * 抑えられる。上限額の合計を寄附予定額が上回る場合のみ、超過分をやむを得ず他の年へ振り分ける
+ * (上限を超えた寄附の自己負担増加率はどの年でも同じため、按分先による有利不利は生じない)。
+ */
+export function optimizeAcrossYears(input: MultiYearAllocationInput): MultiYearAllocation {
+  const { profiles, paramsByYear } = input;
+  const years = profiles.map((p) => p.year);
+  const limits = profiles.map((p) => findFurusatoLimit(p, paramsByYear[p.year], 'standard').limit);
+  const totalBudget = profiles.reduce((sum, p) => sum + p.furusato.donatedAmount, 0) as Yen;
+
+  if (years.length === 0) {
+    return { years, perYearLimit: limits, suggestedDonation: [], rationale: buildAllocationRationale(years, limits, [], totalBudget, 0) };
+  }
+
+  // 上限額が大きい年から順に埋める(topIdxを最優先で埋め切ってから、次に大きい年に回す)。
+  // 全年の上限を使い切ってなお残る分だけ、最も上限額が大きい年(topIdx)に積む(上限を超えた寄附の
+  // 自己負担増加率はどの年でも同じため、超過分をどの年に積んでも有利不利は無い)。
+  const [topIdx, ...restIdx] = years.map((_, i) => i).sort((a, b) => limits[b] - limits[a]);
+
+  const suggestedDonation: Yen[] = years.map(() => 0 as Yen);
+  let remaining = totalBudget as number;
+  const topAlloc = Math.min(remaining, limits[topIdx]);
+  suggestedDonation[topIdx] = topAlloc as Yen;
+  remaining -= topAlloc;
+  for (const idx of restIdx) {
+    const alloc = Math.min(remaining, limits[idx]);
+    suggestedDonation[idx] = alloc as Yen;
+    remaining -= alloc;
+  }
+  if (remaining > 0) {
+    suggestedDonation[topIdx] = (suggestedDonation[topIdx] + remaining) as Yen;
+  }
+
+  return {
+    years,
+    perYearLimit: limits,
+    suggestedDonation,
+    rationale: buildAllocationRationale(years, limits, suggestedDonation, totalBudget, topIdx),
+  };
+}
+
+function buildAllocationRationale(years: number[], limits: Yen[], suggested: Yen[], totalBudget: Yen, primaryIdx: number): string {
+  if (years.length === 0) return '対象年がありません。';
+  if (totalBudget === 0) return '寄附予定額がまだ設定されていないため、配分の提案はありません。寄附実績を記録すると表示されます。';
+
+  const totalLimit = limits.reduce((s, l) => s + l, 0) as Yen;
+  const skippedYears = years.filter((_, i) => i !== primaryIdx && suggested[i] === 0 && limits[i] > 0);
+
+  let text = `寄附予定額の合計${totalBudget.toLocaleString()}円のうち、上限額が最も大きい${years[primaryIdx]}年分(上限${limits[
+    primaryIdx
+  ].toLocaleString()}円)を優先し、${suggested[primaryIdx].toLocaleString()}円を配分することをおすすめします。`;
+
+  if (skippedYears.length > 0) {
+    text += `${skippedYears.join('・')}年分への寄附を控えることで、自己負担(寄附する年ごとに概ね2,000円)が発生する年数を減らせます。`;
+  }
+
+  if (totalBudget > totalLimit) {
+    text += `寄附予定額が対象年の上限合計(${totalLimit.toLocaleString()}円)を超えているため、超過分(${(totalBudget - totalLimit).toLocaleString()}円)は上限超過の寄附として自己負担が増加します。`;
+  }
+
+  return text;
 }

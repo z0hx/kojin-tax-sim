@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyScenarioOverride, compareScenarios, runScenario } from '../scenario';
+import { applyScenarioOverride, compareScenarios, optimizeAcrossYears, runScenario } from '../scenario';
 import { buildCalculationResult } from '../engine';
 import type { Yen } from '../types';
-import { TAX_PARAMS_2026, makeProfile, monthlyAllYear } from './testHelpers';
+import { TAX_PARAMS_2025, TAX_PARAMS_2026, makeProfile, monthlyAllYear } from './testHelpers';
 
 describe('applyScenarioOverride(Issue #13 FR-16シナリオ比較)', () => {
   it('overrideを何も指定しなければ元のプロファイルと同じ内容になる', () => {
@@ -250,6 +250,120 @@ describe('compareScenarios', () => {
     expect(rows[0].diffFromBase).toBe(rows[0].limitAmount - baseResult.furusato.limitAmount);
     expect(rows[1].label).toBe('シナリオB');
     expect(rows[1].diffFromBase).toBe(rows[1].limitAmount - baseResult.furusato.limitAmount);
+  });
+});
+
+describe('optimizeAcrossYears(Issue #18完了条件: 2年分の配分シミュレーション結果が比較表示される)', () => {
+  it('育休で所得割額が低い年は上限額が小さくなり、寄附予定額の合計は上限額の大きい年へ優先配分される', () => {
+    const highIncomeYear = makeProfile({
+      year: 2025,
+      income: monthlyAllYearProfileIncome(),
+      furusato: { method: 'oneStop', donatedAmount: 30_000, safetyRatio: 0.9, donations: [] },
+    });
+    const lowIncomeYear = makeProfile({
+      year: 2026,
+      income: { monthly: monthlyAllYear(0, 0), bonuses: [], leavePeriods: [], otherSalaryIncome: 0 },
+      furusato: { method: 'oneStop', donatedAmount: 30_000, safetyRatio: 0.9, donations: [] },
+    });
+
+    const result = optimizeAcrossYears({
+      profiles: [highIncomeYear, lowIncomeYear],
+      paramsByYear: { 2025: TAX_PARAMS_2025, 2026: TAX_PARAMS_2026 },
+    });
+
+    expect(result.years).toEqual([2025, 2026]);
+    expect(result.perYearLimit[0]).toBeGreaterThan(result.perYearLimit[1]);
+    // 収入が無い年の上限額は0円(非課税、furusato.tsのfindFurusatoLimit参照)
+    expect(result.perYearLimit[1]).toBe(0);
+    // 寄附予定額の合計(60,000円)を変えずに、上限額が大きい2025年分へ全額を寄せる
+    expect(result.suggestedDonation[0] + result.suggestedDonation[1]).toBe(60_000);
+    expect(result.suggestedDonation[1]).toBe(0);
+    expect(result.suggestedDonation[0]).toBe(60_000);
+    expect(result.rationale).toContain('2025年分');
+  });
+
+  it('寄附予定額の合計が上限額の大きい年の枠内に収まるなら、上限額が小さい年(0円ではない)には配分しない(実装後レビュー対応: 一括配分ロジックの導入時に処理順序が逆転し、上限額が小さい年から先に埋めてしまうバグがあった)', () => {
+    const highIncomeYear = makeProfile({
+      year: 2025,
+      income: monthlyAllYearProfileIncome(),
+      furusato: { method: 'oneStop', donatedAmount: 30_000, safetyRatio: 0.9, donations: [] },
+    });
+    const lowIncomeYear = makeProfile({
+      year: 2026,
+      income: { monthly: monthlyAllYear(200_000, 28_000), bonuses: [], leavePeriods: [], otherSalaryIncome: 0 },
+      furusato: { method: 'oneStop', donatedAmount: 20_000, safetyRatio: 0.9, donations: [] },
+    });
+
+    const result = optimizeAcrossYears({
+      profiles: [highIncomeYear, lowIncomeYear],
+      paramsByYear: { 2025: TAX_PARAMS_2025, 2026: TAX_PARAMS_2026 },
+    });
+
+    const totalBudget = 50_000;
+    // 上限額が小さい年(2026年分)も0円ではないことが、このテストのポイント(前提が崩れると
+    // フィル順序の逆転バグを再現できない)
+    expect(result.perYearLimit[1]).toBeGreaterThan(0);
+    expect(result.perYearLimit[0]).toBeGreaterThan(totalBudget);
+    expect(result.suggestedDonation[0]).toBe(totalBudget);
+    expect(result.suggestedDonation[1]).toBe(0);
+  });
+
+  it('寄附予定額の合計が上限額の大きい年だけでは収まらない場合、残りを上限額の小さい年へ配分する', () => {
+    const highIncomeYear = makeProfile({
+      year: 2025,
+      income: monthlyAllYearProfileIncome(),
+      furusato: { method: 'oneStop', donatedAmount: 200_000, safetyRatio: 0.9, donations: [] },
+    });
+    const lowIncomeYear = makeProfile({
+      year: 2026,
+      income: { monthly: monthlyAllYear(200_000, 28_000), bonuses: [], leavePeriods: [], otherSalaryIncome: 0 },
+      furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9, donations: [] },
+    });
+
+    const result = optimizeAcrossYears({
+      profiles: [highIncomeYear, lowIncomeYear],
+      paramsByYear: { 2025: TAX_PARAMS_2025, 2026: TAX_PARAMS_2026 },
+    });
+
+    const totalBudget = 200_000;
+    expect(result.perYearLimit[0]).toBeGreaterThan(result.perYearLimit[1]);
+    expect(result.suggestedDonation[0] + result.suggestedDonation[1]).toBe(totalBudget);
+    // 上限額が小さい方の年(2026年分)への配分は、その年の上限額を超えない
+    expect(result.suggestedDonation[1]).toBe(result.perYearLimit[1]);
+    // 両年の上限を使い切ってなお残る分は、上限額が大きい方の年(2025年分)に積む
+    expect(result.suggestedDonation[0]).toBe(totalBudget - result.perYearLimit[1]);
+    expect(result.suggestedDonation[0]).toBeGreaterThan(result.perYearLimit[0]);
+  });
+
+  it('寄附予定額の合計が0円の場合、「優先」「控える」という矛盾した文言にならない案内を返す(実装後レビュー対応)', () => {
+    const highIncomeYear = makeProfile({
+      year: 2025,
+      income: monthlyAllYearProfileIncome(),
+      furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9, donations: [] },
+    });
+    const lowIncomeYear = makeProfile({
+      year: 2026,
+      income: { monthly: monthlyAllYear(200_000, 28_000), bonuses: [], leavePeriods: [], otherSalaryIncome: 0 },
+      furusato: { method: 'oneStop', donatedAmount: 0, safetyRatio: 0.9, donations: [] },
+    });
+
+    const result = optimizeAcrossYears({
+      profiles: [highIncomeYear, lowIncomeYear],
+      paramsByYear: { 2025: TAX_PARAMS_2025, 2026: TAX_PARAMS_2026 },
+    });
+
+    expect(result.suggestedDonation).toEqual([0, 0]);
+    expect(result.rationale).not.toContain('優先');
+    expect(result.rationale).not.toContain('控える');
+    expect(result.rationale).toContain('寄附予定額がまだ設定されていない');
+  });
+
+  it('対象年が無い場合は空の結果を返す', () => {
+    const result = optimizeAcrossYears({ profiles: [], paramsByYear: {} });
+    expect(result.years).toEqual([]);
+    expect(result.perYearLimit).toEqual([]);
+    expect(result.suggestedDonation).toEqual([]);
+    expect(result.rationale).toContain('対象年がありません');
   });
 });
 

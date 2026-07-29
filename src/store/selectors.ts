@@ -84,6 +84,19 @@ export function selectHouseholdSummary(state: TaxParamsCacheInput, preferredYear
 }
 
 /**
+ * 指定した人物の年度プロファイルのうち、税制パラメータが読み込み済み(taxParamsキャッシュに存在する)ものだけを
+ * 年度の昇順で返す(FR-22複数年最適化で使用)。読み込みに失敗・未完了の年は除外し、一部の年が読めないだけで
+ * 機能全体を止めないようにする(selectorはfetchを行わないため、未キャッシュの年はそのまま除外する)。
+ */
+export function selectEligibleYearProfiles(state: TaxParamsCacheInput, personId: string): YearProfile[] {
+  const person = state.appData?.persons.find((p) => p.id === personId);
+  if (!person) return [];
+  return Object.values(person.years)
+    .filter((p) => Boolean(state.taxParams[p.year]))
+    .sort((a, b) => a.year - b.year);
+}
+
+/**
  * 配偶者の合計所得金額(FR-29)。配偶者控除判定のために本人プロファイルへ参照連携する用途で使う読み取り専用セレクタ。
  * 実際に本人のSpouseInputへ書き込むアクション(linkSpouseIncome)はIssue #14(世帯ビュー)で追加する。
  * 対象年のYearProfileまたはtaxParamsが無ければnullを返す(fetchはしない)。

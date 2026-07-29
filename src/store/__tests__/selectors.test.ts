@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { emptyAppData, type AppData, type Person } from '../../persistence/types';
 import { makeProfile, TAX_PARAMS_2026 } from '../../domain/__tests__/testHelpers';
-import { selectActivePerson, selectActiveYearProfile, selectHouseholdSummary, selectSpouseTotalIncome } from '../selectors';
+import {
+  selectActivePerson,
+  selectActiveYearProfile,
+  selectEligibleYearProfiles,
+  selectHouseholdSummary,
+  selectSpouseTotalIncome,
+} from '../selectors';
 import { yokohamaMunicipality } from './testUtils';
 
 function person(id: string, displayName: string, years: Person['years'] = {}): Person {
@@ -82,6 +88,24 @@ describe('selectHouseholdSummary', () => {
     const appData = appDataWith(p1);
     const summary = selectHouseholdSummary({ appData, taxParams: { 2025: TAX_PARAMS_2026 } }, 2026);
     expect(summary[0].available).toBe(true);
+  });
+});
+
+describe('selectEligibleYearProfiles(FR-22複数年最適化)', () => {
+  it('人物が存在しなければ空配列', () => {
+    const appData = appDataWith(person('p1', '本人'));
+    expect(selectEligibleYearProfiles({ appData, taxParams: {} }, 'missing')).toEqual([]);
+  });
+
+  it('taxParams未キャッシュの年は除外し、キャッシュ済みの年のみ年度昇順で返す', () => {
+    const p1 = person('p1', '本人', {
+      2026: makeProfile({ year: 2026 }),
+      2024: makeProfile({ year: 2024 }),
+      2025: makeProfile({ year: 2025 }),
+    });
+    const appData = appDataWith(p1);
+    const result = selectEligibleYearProfiles({ appData, taxParams: { 2024: TAX_PARAMS_2026, 2026: TAX_PARAMS_2026 } }, 'p1');
+    expect(result.map((p) => p.year)).toEqual([2024, 2026]);
   });
 });
 
