@@ -197,4 +197,33 @@ describe('CalculationDetailScreen(S-05)', () => {
     const amountCell = within(row).getByText(/円$/);
     expect(amountCell).toHaveClass('amount');
   });
+
+  it('印刷ボタンでwindow.print()が呼ばれる(FR-20完了条件)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    const printSpy = vi.fn();
+    vi.stubGlobal('print', printSpy);
+
+    await renderAppAndWaitLoaded();
+    const main = await openCalculationDetailScreen();
+
+    await userEvent.click(within(main).getByRole('button', { name: '印刷' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('印刷対象外の要素(戻るボタン・印刷ボタン自体)にno-printクラスが付与される(FR-20完了条件)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+    const main = await openCalculationDetailScreen();
+
+    expect(within(main).getByRole('button', { name: '← 戻る' })).toHaveClass('no-print');
+    expect(within(main).getByRole('button', { name: '印刷' })).toHaveClass('no-print');
+  });
 });

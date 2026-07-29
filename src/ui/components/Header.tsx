@@ -22,6 +22,7 @@ export function Header() {
 
   return (
     <header
+      className="no-print"
       style={{
         display: 'flex',
         alignItems: 'center',
