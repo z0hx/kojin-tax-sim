@@ -20,7 +20,7 @@ import { useAppStore, initialState } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { clearAppData, saveAppData } from '../../persistence/repository';
 import { flushNow, resetSaveQueueForTests } from '../../store/saveQueue';
-import { CURRENT_SCHEMA_VERSION } from '../../persistence/migration';
+import { CURRENT_SCHEMA_VERSION } from '../../persistence/types';
 import { emptyAppData, type AppData } from '../../persistence/types';
 import {
   installMemoryLocalStorage,

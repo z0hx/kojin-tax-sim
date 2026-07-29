@@ -20,7 +20,7 @@ vi.mock('../../persistence/exporter', async (importOriginal) => {
 import App from '../../App';
 import { useAppStore, initialState } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
-import { clearAppData } from '../../persistence/repository';
+import { clearAppData, loadAppData, saveAppData } from '../../persistence/repository';
 import { flushNow, resetSaveQueueForTests } from '../../store/saveQueue';
 import {
   installMemoryLocalStorage,
@@ -92,6 +92,23 @@ describe('App(人物プロファイル管理)', () => {
     expect(person.defaults.municipality.prefectureName).toBe('神奈川県');
     expect(person.defaults.municipality.name).toBe('横浜市');
     await waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+  });
+
+  it('起動時の検証を通らない保存データは破棄され、オンボーディングの先頭でその旨が表示される(#36)', async () => {
+    installStoragePersistMock();
+    // FR-21以前に保存されたデータ相当(furusato.donationsが無い)を直接IndexedDBへ置く
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    await flushNow();
+    const stored = (await loadAppData())!;
+    delete (stored.persons[0].years[2026].furusato as { donations?: unknown }).donations;
+    await saveAppData(stored);
+    useAppStore.setState(initialState());
+
+    await renderAppAndWaitLoaded();
+
+    expect(screen.getByRole('heading', { name: 'データの保存方法について' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('破棄しました');
   });
 
   it('オンボーディングのステップ2で表示名が未入力だと次へ進めない', async () => {

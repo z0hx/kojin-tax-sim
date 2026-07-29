@@ -1,6 +1,5 @@
 import { encrypt } from './crypto';
-import { CURRENT_SCHEMA_VERSION } from './migration';
-import { defaultAppSettings, type AppData, type Person } from './types';
+import { CURRENT_SCHEMA_VERSION, defaultAppSettings, type AppData, type Person } from './types';
 
 export interface ExportOptions {
   personIds: string[] | 'all';

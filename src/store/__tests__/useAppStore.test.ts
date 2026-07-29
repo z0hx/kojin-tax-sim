@@ -7,13 +7,12 @@ vi.mock('../../persistence/exporter', async (importOriginal) => {
   return { ...actual, saveBlob: saveBlobMock };
 });
 
-import { clearAppData, loadAppData } from '../../persistence/repository';
+import { clearAppData, loadAppData, saveAppData } from '../../persistence/repository';
 import { resetDbConnectionForTests } from '../../persistence/db';
 import { resetSaveQueueForTests, flushNow } from '../saveQueue';
 import { createAppStore, DEFAULT_MUNICIPALITY } from '../useAppStore';
 import { installMemoryLocalStorage, stubFetchForTaxParams, uninstallMemoryLocalStorage, yokohamaMunicipality } from './testUtils';
-import { CURRENT_SCHEMA_VERSION } from '../../persistence/migration';
-import { emptyAppData, type AppData } from '../../persistence/types';
+import { CURRENT_SCHEMA_VERSION, emptyAppData, type AppData } from '../../persistence/types';
 import { TaxParamsError } from '../../taxParams/loader';
 import { loadUiSettings, saveUiSettings } from '../../persistence/settings';
 
@@ -25,6 +24,17 @@ function monthly(gross: number, social: number) {
     socialInsurance: social,
     isSocialInsuranceExempt: false,
   }));
+}
+
+/** FR-21(寄附実績記録)より前に保存されたデータ相当。furusato.donationsを持たない(#36) */
+async function buildLegacyStoredData(): Promise<AppData> {
+  const setupStore = createAppStore();
+  setupStore.getState().addPerson('本人', '#336699');
+  await setupStore.getState().createBlankYear(2026);
+  await flushNow();
+  const stored = (await loadAppData())!;
+  delete (stored.persons[0].years[2026].furusato as { donations?: unknown }).donations;
+  return stored;
 }
 
 describe('useAppStore', () => {
@@ -68,6 +78,37 @@ describe('useAppStore', () => {
       expect(s.activePersonId).toBe(personId);
       expect(s.activeYear).toBe(2026); // 最新年度
       expect(s.calculationResult).not.toBeNull();
+    });
+
+    it('旧形式(furusato.donationsが無い)の保存データは破棄し、理由を示してオンボーディングから開始する(#36)', async () => {
+      await saveAppData(await buildLegacyStoredData());
+
+      await store.getState().loadInitialData();
+
+      const s = store.getState();
+      expect(s.onboardingRequired).toBe(true);
+      expect(s.appData?.persons).toEqual([]);
+      expect(s.activePersonId).toBeNull();
+      expect(s.activeYear).toBeNull();
+      expect(s.isLoading).toBe(false);
+      expect(s.lastError?.message).toContain('破棄しました');
+      // 破棄はIndexedDBにも反映され、次回起動で同じ検証エラーを繰り返さない
+      expect(await loadAppData()).toBeNull();
+      expect(loadUiSettings().lastActivePersonId).toBeNull();
+    });
+
+    it('破棄そのものに失敗しても、検証を通らないデータは読み込まずオンボーディングを開始する(#36)', async () => {
+      await saveAppData(await buildLegacyStoredData());
+      const repository = await import('../../persistence/repository');
+      const spy = vi.spyOn(repository, 'clearAppData').mockRejectedValueOnce(new Error('quota exceeded'));
+
+      await store.getState().loadInitialData();
+
+      const s = store.getState();
+      expect(s.onboardingRequired).toBe(true);
+      expect(s.appData?.persons).toEqual([]);
+      expect(s.lastError).not.toBeNull();
+      spy.mockRestore();
     });
   });
 

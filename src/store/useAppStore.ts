@@ -7,6 +7,7 @@ import { emptyAppData, type AppData, type Person } from '../persistence/types';
 import { loadUiSettings, saveUiSettings } from '../persistence/settings';
 import { exportData as exportDataFile, buildFileName, saveBlob, sanitizeFilenamePart } from '../persistence/exporter';
 import { parseImportFile, buildImportPreview, applyImport } from '../persistence/importer';
+import { migrate } from '../persistence/migration';
 import { StorageError } from '../persistence/errors';
 import { loadTaxParams } from '../taxParams/loader';
 import type { TaxParams } from '../taxParams/schema';
@@ -127,6 +128,32 @@ function persistUiSelection(personId: string | null, year: number | null): void 
   saveUiSettings({ ...current, lastActivePersonId: personId, lastActiveYear: year });
 }
 
+/**
+ * 起動時の検証(migrate)に失敗した保存データを破棄し、オンボーディングからやり直す状態にする(#36)。
+ * 黙って消すと利用者にはデータが消えた理由が分からないため、破棄した旨と検証エラーの内容を残す。
+ */
+async function discardIncompatibleData(set: Set, cause: unknown): Promise<void> {
+  try {
+    await clearAppData();
+  } catch {
+    // 破棄に失敗しても、検証を通らないデータを読み込むわけにはいかないためオンボーディングは開始する
+    // (次回起動時も同じ検証で弾かれ、再びここへ来る)
+  }
+  persistUiSelection(null, null);
+  set({
+    appData: emptyAppData(),
+    activePersonId: null,
+    activeYear: null,
+    calculationResult: null,
+    onboardingRequired: true,
+    isLoading: false,
+    lastError: new StorageError(
+      `保存されていたデータが現行の形式に適合しないため破棄しました(${cause instanceof Error ? cause.message : String(cause)})。お手数ですが最初から入力してください。`,
+      cause
+    ),
+  });
+}
+
 /** taxParams[year]が無ければloadTaxParamsで取得しキャッシュする。失敗時はlastErrorにセットしnullを返す(fail closed) */
 async function ensureTaxParamsLoaded(year: number, set: Set, get: Get): Promise<TaxParams | null> {
   const cached = get().taxParams[year];
@@ -178,12 +205,24 @@ function createStoreImpl(set: Set, get: Get): AppStore {
 
     async loadInitialData() {
       set({ isLoading: true });
-      let loaded: AppData | null;
+      let stored: AppData | null;
       try {
-        loaded = await loadAppData();
+        stored = await loadAppData();
       } catch (e) {
         set({ isLoading: false, lastError: e as AppError, appData: emptyAppData(), onboardingRequired: true });
         return;
+      }
+
+      // 保存済みデータもインポートと同じmigrate()を通す。検証しないまま流すと、旧形式(例: FR-21以前の
+      // furusato.donationsを持たないデータ)が計算・UIへ届いてTypeErrorで落ちるため(#36)
+      let loaded: AppData | null = null;
+      if (stored) {
+        try {
+          loaded = migrate(stored);
+        } catch (e) {
+          await discardIncompatibleData(set, e);
+          return;
+        }
       }
 
       if (!loaded) {

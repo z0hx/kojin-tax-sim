@@ -1,40 +1,18 @@
 import { ImportError } from './errors';
-import type { AppData } from './types';
+import { CURRENT_SCHEMA_VERSION, type AppData } from './types';
 
 /** 03詳細設計書§5.3: バージョン番号ごとの移行関数 */
 type Migration = (data: unknown) => unknown;
 
+/**
+ * v1が現行スキーマのため移行関数は無い。将来v2を切る際に `{ 2: migrateV1ToV2 }` の形で追加すると、
+ * migrate()のループが古いデータを順に現行版まで引き上げる(NFR-13)。
+ */
+const MIGRATIONS: Record<number, Migration> = {};
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
-
-/** v1→v2: FR-21(寄附実績記録)でfurusato.donationsを追加。既存データには存在しないため空配列で補う */
-function migrateV1ToV2(data: unknown): unknown {
-  if (!isPlainObject(data) || !Array.isArray(data.persons)) return data;
-  return {
-    ...data,
-    schemaVersion: 2,
-    persons: data.persons.map((p) => {
-      if (!isPlainObject(p) || !isPlainObject(p.years)) return p;
-      const years = Object.fromEntries(
-        Object.entries(p.years).map(([year, profile]) => {
-          if (!isPlainObject(profile) || !isPlainObject(profile.furusato)) return [year, profile];
-          return [
-            year,
-            { ...profile, furusato: { donations: [], ...profile.furusato } },
-          ];
-        })
-      );
-      return { ...p, years };
-    }),
-  };
-}
-
-const MIGRATIONS: Record<number, Migration> = {
-  2: migrateV1ToV2,
-};
-
-export const CURRENT_SCHEMA_VERSION = 2;
 
 function isNonNegativeFiniteNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0;
