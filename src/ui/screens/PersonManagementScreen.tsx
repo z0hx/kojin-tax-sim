@@ -18,8 +18,6 @@ function PersonCard({ person, isActive }: PersonCardProps) {
   const setPersonColor = useAppStore((s) => s.setPersonColor);
   const duplicatePerson = useAppStore((s) => s.duplicatePerson);
   const deletePersonWithBackup = useAppStore((s) => s.deletePersonWithBackup);
-  const lastError = useAppStore((s) => s.lastError);
-  const clearLastError = useAppStore((s) => s.clearLastError);
 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(person.displayName);
@@ -89,18 +87,6 @@ function PersonCard({ person, isActive }: PersonCardProps) {
         </button>
       </div>
 
-      {lastError && !confirmingDelete && (
-        <div
-          role="alert"
-          style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem' }}
-        >
-          {lastError.message}
-          <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
-            閉じる
-          </button>
-        </div>
-      )}
-
       {confirmingDelete && (
         <ConfirmDialog
           title="人物を削除しますか?"
@@ -121,6 +107,8 @@ export function PersonManagementScreen() {
   const persons = useAppStore((s) => s.appData?.persons ?? []);
   const activePersonId = useAppStore((s) => s.activePersonId);
   const addPerson = useAppStore((s) => s.addPerson);
+  const lastError = useAppStore((s) => s.lastError);
+  const clearLastError = useAppStore((s) => s.clearLastError);
   const navigate = useNavigation((s) => s.navigate);
 
   const [newName, setNewName] = useState('');
@@ -143,6 +131,20 @@ export function PersonManagementScreen() {
         </button>
         <h1 style={{ margin: 0 }}>人物管理</h1>
       </div>
+
+      {/* lastErrorは人物単位ではなくストア全体で1つのため、カード内ではなく画面上部に1枚だけ出す
+          (カード内に置くと人物の数だけ同じバナーが並び、role="alert"も重複して読み上げられる。#44) */}
+      {lastError && (
+        <div
+          role="alert"
+          style={{ marginTop: '1rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 4, fontSize: '0.85rem' }}
+        >
+          {lastError.message}
+          <button type="button" onClick={clearLastError} style={{ marginLeft: '0.5rem' }}>
+            閉じる
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem', marginTop: '1.5rem' }}>
         {persons.map((person) => (

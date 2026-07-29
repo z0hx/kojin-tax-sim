@@ -199,4 +199,28 @@ describe('App(人物プロファイル管理)', () => {
     await waitFor(() => expect(within(main).getByRole('alert')).toHaveTextContent('キャンセル'));
     expect(useAppStore.getState().appData!.persons.map((p) => p.id)).toContain(idA);
   });
+
+  it('人物が複数いてもエラーバナーは画面上部に1枚だけ表示される(#44)', async () => {
+    const idA = useAppStore.getState().addPerson('本人', '#111111');
+    useAppStore.getState().addPerson('配偶者', '#222222');
+    useAppStore.getState().addPerson('子', '#333333');
+    await useAppStore.getState().setActivePerson(idA);
+    await flushNow();
+    saveBlobMock.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'));
+
+    await renderAppAndWaitLoaded();
+    const main = await openPersonManagement();
+
+    const nameButtonA = within(main).getByRole('button', { name: '本人' });
+    const cardA = nameButtonA.closest('div')!.parentElement!;
+    await userEvent.click(within(cardA).getByRole('button', { name: '削除' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '削除する' }));
+
+    await waitFor(() => expect(within(main).getAllByRole('alert')).toHaveLength(1));
+    expect(within(main).getByRole('alert')).toHaveTextContent('キャンセル');
+
+    await userEvent.click(within(main).getByRole('button', { name: '閉じる' }));
+    expect(within(main).queryByRole('alert')).not.toBeInTheDocument();
+  });
 });
