@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { calcSnapshot } from '../engine';
-import { findFurusatoLimit, selfBurden, SELF_BURDEN_BUDGET } from '../furusato';
+import { buildSelfBurdenLadder, findFurusatoLimit, findLadderHintRow, selfBurden, SELF_BURDEN_BUDGET, type SelfBurdenLadderRow } from '../furusato';
 import type { YearProfile, Yen } from '../types';
-import { TAX_PARAMS_2026, makeProfile, monthlyAllYear } from './testHelpers';
+import { TAX_PARAMS_2026, makeM1Profile, makeProfile, monthlyAllYear } from './testHelpers';
 
 function standardEarnerProfile(): ReturnType<typeof makeProfile> {
   return makeProfile({
@@ -143,5 +143,91 @@ describe('findFurusatoLimit: 高所得ケース (レビュー指摘High#3是正)
     for (let d = result.limit + 1000; d <= result.limit + 50_000; d += 1000) {
       expect(selfBurden(profile, d as Yen, TAX_PARAMS_2026, 'standard')).toBeGreaterThan(SELF_BURDEN_BUDGET);
     }
+  });
+});
+
+describe('buildSelfBurdenLadder (FR-32 自己負担段階表)', () => {
+  /** 20%枠に達して崖になる年分(住宅ローン控除なし) */
+  function cliffProfile(): YearProfile {
+    return makeProfile({ income: { monthly: monthlyAllYear(500_000, 75_000), bonuses: [], leavePeriods: [], otherSalaryIncome: 0 } });
+  }
+
+  /** 所得税側で控除しきれず、上限を超えても自己負担がなだらかに増える年分(確定申告ルート) */
+  function slopeProfile(): YearProfile {
+    const base = makeM1Profile(32_000_000);
+    return { ...base, furusato: { ...base.furusato, method: 'taxReturn' as const } };
+  }
+
+  it('1段目は通常の上限額と一致し、段が進むほど上限額が増える', () => {
+    const profile = cliffProfile();
+    const rows = buildSelfBurdenLadder(profile, TAX_PARAMS_2026, 'standard');
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows[0].limit).toBe(findFurusatoLimit(profile, TAX_PARAMS_2026, 'standard').limit);
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i].limit).toBeGreaterThan(rows[i - 1].limit);
+      expect(rows[i].selfBurden).toBeGreaterThan(rows[i - 1].selfBurden);
+    }
+  });
+
+  it('各段の自己負担額は許容額以内に収まる', () => {
+    const profile = cliffProfile();
+    for (const row of buildSelfBurdenLadder(profile, TAX_PARAMS_2026, 'standard')) {
+      expect(selfBurden(profile, row.limit, TAX_PARAMS_2026, 'standard')).toBeLessThanOrEqual(row.budget);
+      expect(row.selfBurden).toBeLessThanOrEqual(row.budget);
+    }
+  });
+
+  it('20%枠に達した先では追加自己負担1円あたりの追加寄附額が小さい(崖)', () => {
+    const rows = buildSelfBurdenLadder(cliffProfile(), TAX_PARAMS_2026, 'standard');
+    for (const row of rows.slice(1)) {
+      expect(row.donationPerYen).not.toBeNull();
+      expect(row.donationPerYen!).toBeLessThan(2);
+    }
+  });
+
+  it('所得税側で控除しきれない年分では追加自己負担1円で何円も寄附を伸ばせる(なだらか)', () => {
+    const rows = buildSelfBurdenLadder(slopeProfile(), TAX_PARAMS_2026, 'standard');
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows[1].donationPerYen!).toBeGreaterThan(3);
+  });
+
+  it('上限額が同じになる段は畳む', () => {
+    const rows = buildSelfBurdenLadder(cliffProfile(), TAX_PARAMS_2026, 'standard', [2300, 2300, 3000]);
+    expect(rows.map((r) => r.limit)).toEqual(Array.from(new Set(rows.map((r) => r.limit))));
+  });
+
+  it('所得割が非課税の年分は空になる', () => {
+    expect(buildSelfBurdenLadder(makeProfile(), TAX_PARAMS_2026, 'standard')).toEqual([]);
+  });
+});
+
+describe('findLadderHintRow (FR-32 ダッシュボードの案内)', () => {
+  function row(limit: number, selfBurden: number, budget: number): SelfBurdenLadderRow {
+    return {
+      budget,
+      limit: limit as Yen,
+      selfBurden: selfBurden as Yen,
+      deltaDonation: 0 as Yen,
+      deltaSelfBurden: 0 as Yen,
+      donationPerYen: null,
+    };
+  }
+
+  it('自己負担の増分が端数の範囲でしかない段は、比が大きく出ても案内しない', () => {
+    // 1段目との差が300円(端数許容と同じ)しか無い。比は3.3だが端数と区別できない
+    const rows = [row(77_000, 2200, 2300), row(78_000, 2500, 3000), row(81_000, 4900, 5000)];
+    expect(findLadderHintRow(rows)).toBeNull();
+  });
+
+  it('端数と区別できる差があり、追加自己負担1円あたり3円以上寄附を伸ばせる段を案内する', () => {
+    const rows = [row(5_000, 2300, 2300), row(12_000, 3000, 3000), row(32_000, 5000, 5000)];
+    const hint = findLadderHintRow(rows);
+    expect(hint?.row.limit).toBe(12_000);
+    expect(hint?.donationPerYen).toBeCloseTo(10, 5);
+  });
+
+  it('段が1つしか無い場合はnullを返す', () => {
+    expect(findLadderHintRow([row(77_000, 2200, 2300)])).toBeNull();
+    expect(findLadderHintRow([])).toBeNull();
   });
 });

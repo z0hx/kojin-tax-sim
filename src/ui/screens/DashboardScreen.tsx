@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
@@ -7,6 +7,7 @@ import { PrintButton } from '../components/PrintButton';
 import { daysSince } from '../dateUtils';
 import { formatRateAsPercent } from '../parseAmount';
 import { compareWithActuals } from '../../domain/actuals';
+import { buildSelfBurdenLadder, findLadderHintRow } from '../../domain/furusato';
 import { isTaxParamsStale } from '../../taxParams/loader';
 import { SUPPORTED_TAX_YEARS } from '../../taxParams/supportedYears';
 
@@ -52,6 +53,14 @@ export function DashboardScreen() {
 
   const person = appData?.persons.find((p) => p.id === activePersonId);
   const profile = person && activeYear !== null ? person.years[activeYear] : undefined;
+
+  // FR-32の案内(自己負担を少し許せば上限が大きく伸びる年分か)。フックはガードより前で
+  // 無条件に呼ぶ必要があるため、早期returnより前に置く。
+  const ladderHintParams = profile ? taxParams[profile.year] : undefined;
+  const ladderHint = useMemo(() => {
+    if (!profile || !ladderHintParams) return null;
+    return findLadderHintRow(buildSelfBurdenLadder(profile, ladderHintParams, 'standard'));
+  }, [profile, ladderHintParams]);
 
   if (!person) {
     return (
@@ -255,6 +264,18 @@ export function DashboardScreen() {
         <p style={{ margin: '0.2rem 0' }}>
           ふるさと納税 上限額 <span className="amount" style={{ fontSize: '1.1rem' }}>{furusato.limitAmount.toLocaleString()}円</span>
         </p>
+        {/* FR-32: 上限額を超えた先の増え方は年分によって大きく違う。自己負担を少し許すだけで
+            寄附額を大きく伸ばせる年分(所得税額が住宅ローン控除で既に0円の年分など)は、
+            上限額だけを見て判断すると損をするため、その場でひと言案内する */}
+        {ladderHint && (
+          <p className="no-print" style={{ margin: '0.2rem 0', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+            自己負担{ladderHint.row.selfBurden.toLocaleString()}円まで許容すると上限は{ladderHint.row.limit.toLocaleString()}円になります(追加自己負担1円あたり
+            {ladderHint.donationPerYen.toFixed(1)}円)。
+            <button type="button" onClick={() => navigate('simulation')} style={{ marginLeft: '0.4rem' }}>
+              段階表を見る
+            </button>
+          </p>
+        )}
         <p style={{ margin: '0.2rem 0', fontSize: '1.4rem', fontWeight: 700 }}>
           推奨額(安全率{safetyPercentLabel}%) <span className="amount">{furusato.recommendedAmount.toLocaleString()}円</span>
         </p>

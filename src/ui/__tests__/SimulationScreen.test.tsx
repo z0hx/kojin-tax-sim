@@ -82,6 +82,20 @@ describe('SimulationScreen(S-06)', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: /収入入力/ })).toBeInTheDocument());
   });
 
+  it('自己負担額ごとの上限額の段階表が表示され、1段目が通常の上限額と一致する(FR-32)', async () => {
+    await setupTaxableProfile();
+    await renderAppAndWaitLoaded();
+    const main = await openSimulationScreen();
+
+    const table = within(main).getByRole('table');
+    const rows = within(table).getAllByRole('row').slice(1); // ヘッダー行を除く
+    expect(rows.length).toBeGreaterThan(1);
+
+    const limit = useAppStore.getState().calculationResult!.furusato.limitAmount;
+    expect(within(rows[0]).getByText(`${limit.toLocaleString()}円`)).toBeInTheDocument();
+    expect(within(rows[0]).getByText('(通常の上限)')).toBeInTheDocument();
+  });
+
   it('スライダーを動かすと自己負担額の表示がその場で更新される', async () => {
     await setupTaxableProfile();
     await renderAppAndWaitLoaded();
