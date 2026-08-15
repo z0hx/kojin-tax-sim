@@ -82,6 +82,60 @@ describe('DashboardScreen(S-01)', () => {
     expect(result.furusato.limitAmount).toBeGreaterThan(0);
   });
 
+  it('自己負担を少し許すだけで上限が伸びる年分では段階表への案内が出る(FR-32)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    useAppStore.getState().updateIncome({
+      monthly: Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        status: 'actual' as const,
+        grossSalary: 500_000,
+        socialInsurance: 70_000,
+        isSocialInsuranceExempt: false,
+      })),
+    });
+    // 医療費控除ありで確定申告ルートに倒し、住宅ローン控除で所得税を0円にする。
+    // 所得税側で控除しきれないぶん、上限を超えても自己負担はなだらかにしか増えない。
+    useAppStore.getState().updateDeductions({ medical: { paid: 150_000, reimbursed: 0, selfMedication: 0, mode: 'auto' } });
+    useAppStore.getState().updateHousingLoan({
+      moveInYear: 2023,
+      years: 13,
+      rate: 0.007,
+      yearEndBalance: 40_000_000,
+      borrowingCap: 40_000_000,
+      residentTaxCapRule: 'rule5pct97500',
+    });
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+
+    await waitFor(() => expect(screen.getByText(/まで許容すると上限は/)).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: '段階表を見る' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /シミュレーション/ })).toBeInTheDocument());
+  });
+
+  it('上限額の先が崖になる年分では段階表への案内を出さない(FR-32)', async () => {
+    installStoragePersistMock();
+    useAppStore.getState().addPerson('本人', '#111111');
+    await useAppStore.getState().createBlankYear(2026);
+    useAppStore.getState().updateIncome({
+      monthly: Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        status: 'actual' as const,
+        grossSalary: 500_000,
+        socialInsurance: 70_000,
+        isSocialInsuranceExempt: false,
+      })),
+    });
+    await flushNow();
+
+    await renderAppAndWaitLoaded();
+
+    await waitFor(() => expect(screen.getByText(/ふるさと納税 上限額/)).toBeInTheDocument());
+    expect(screen.queryByText(/まで許容すると上限は/)).not.toBeInTheDocument();
+  });
+
   it('医療費控除とワンストップ特例を併用しているとW-04が警告として表示される', async () => {
     installStoragePersistMock();
     useAppStore.getState().addPerson('本人', '#111111');

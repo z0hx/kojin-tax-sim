@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ReferenceDot, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
-import { selfBurden } from '../../domain/furusato';
+import { buildSelfBurdenLadder, selfBurden } from '../../domain/furusato';
 import type { YearProfile, Yen } from '../../domain/types';
 import type { TaxParams } from '../../taxParams/schema';
 import { buildSelfBurdenCurve, CURVE_STEP_MIN } from '../selfBurdenCurve';
@@ -45,6 +45,11 @@ export function SimulationScreen() {
     if (!profile || !params) return [];
     return buildSelfBurdenCurve(profile, params, maxDonation, limitAmount);
   }, [profile, params, maxDonation, limitAmount]);
+
+  const ladder = useMemo(() => {
+    if (!profile || !params) return [];
+    return buildSelfBurdenLadder(profile, params, 'standard');
+  }, [profile, params]);
 
   if (!profile) {
     return (
@@ -153,9 +158,61 @@ export function SimulationScreen() {
           </ResponsiveContainer>
         </div>
       </section>
+
+      {ladder.length > 0 && (
+        <section style={{ marginTop: '1.5rem' }}>
+          <h2 style={{ fontSize: '1rem' }}>自己負担額ごとの上限額</h2>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+            自己負担2,000円を諦めた場合に、寄附額をどこまで伸ばせるかの目安です。1段目が通常の上限額です。
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>自己負担</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>上限額</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>追加寄附</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>追加自己負担</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>追加1円あたり</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ladder.map((row, i) => (
+                  <tr key={row.budget}>
+                    <td style={tdStyle}>
+                      <span className="amount">{row.selfBurden.toLocaleString()}円</span>
+                      {i === 0 && <span style={{ marginLeft: '0.4rem', fontSize: '0.8rem', color: 'var(--color-muted)' }}>(通常の上限)</span>}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: i === 0 ? 700 : 400 }}>
+                      <span className="amount">{row.limit.toLocaleString()}円</span>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      {i === 0 ? '—' : <span className="amount">+{row.deltaDonation.toLocaleString()}円</span>}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      {i === 0 ? '—' : <span className="amount">+{row.deltaSelfBurden.toLocaleString()}円</span>}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      {row.donationPerYen === null ? '—' : <span className="amount">{row.donationPerYen.toFixed(1)}円</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+            「追加1円あたり」は、自己負担を1円増やすごとに寄附額をいくら伸ばせるかを表します。この値が大きい年分は、
+            自己負担を少し許すだけで寄附額を大きく伸ばせます(所得税額が住宅ローン控除で既に0円の年分など)。
+            1円前後まで下がっていれば、そこから先は追加寄附のほぼ全額が自己負担になります。
+          </p>
+        </section>
+      )}
     </main>
   );
 }
+
+const thStyle = { textAlign: 'left' as const, padding: '0.4rem 0.8rem', borderBottom: '2px solid var(--color-border)' };
+const tdStyle = { padding: '0.4rem 0.8rem', borderBottom: '1px solid var(--color-border)' };
 
 function computeSelfBurden(profile: YearProfile, donation: number, params: TaxParams): number {
   return selfBurden(profile, donation as Yen, params, 'standard');
