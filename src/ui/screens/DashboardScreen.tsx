@@ -128,11 +128,15 @@ export function DashboardScreen() {
 
   // 4区分の合計は寄附額(上限額)と一致する(engine.ts参照)。1本の積み上げ棒として表示するため、
   // 1行に4区分すべての値を持たせる(区分ごとに行を分けるとBarのstackIdによる積み上げにならない)。
+  // 所得税軽減と申告特例控除額は同時には発生しない(ワンストップ特例では所得税の寄附金控除を
+  // 行わず、相当額を住民税の申告特例控除額として控除する)ため、同じ区分として出し分ける。
+  const usesOneStop = furusato.breakdown.residentOneStop > 0;
+  const incomeTaxOrOneStopLabel = usesOneStop ? '住民税申告特例分' : '所得税軽減';
   const breakdownData = [
     {
       name: '内訳',
       自己負担: furusato.breakdown.selfBurden,
-      所得税軽減: furusato.breakdown.incomeTaxReduction,
+      [incomeTaxOrOneStopLabel]: usesOneStop ? furusato.breakdown.residentOneStop : furusato.breakdown.incomeTaxReduction,
       住民税基本分: furusato.breakdown.residentBasic,
       住民税特例分: furusato.breakdown.residentSpecial,
     },
@@ -304,7 +308,7 @@ export function DashboardScreen() {
               <YAxis type="category" dataKey="name" width={100} />
               <Tooltip formatter={(value) => `${Number(value).toLocaleString()}円`} />
               <Bar dataKey="自己負担" stackId="a" fill="var(--color-series-1)" />
-              <Bar dataKey="所得税軽減" stackId="a" fill="var(--color-series-2)" />
+              <Bar dataKey={incomeTaxOrOneStopLabel} stackId="a" fill="var(--color-series-2)" />
               <Bar dataKey="住民税基本分" stackId="a" fill="var(--color-series-3)" />
               <Bar dataKey="住民税特例分" stackId="a" fill="var(--color-series-4)" />
             </BarChart>

@@ -64,9 +64,12 @@ export function makeProfile(overrides: Partial<YearProfile> = {}): YearProfile {
 /**
  * M1モデルケース(03詳細設計書§10.2)。給与収入500万・社保75万・生保新規一般(所得税4万/住民税2.8万相当)・住宅ローン控除ケース。
  * 月次按分の端数を避けるため、収入はotherSalaryIncome・社保はsocialInsuranceOverrideで指定する。
+ * モデルケースは確定申告ルート(所得税の寄附金控除を適用)を前提とする。ワンストップ特例では
+ * 申告特例控除額により結果が変わるため、methodを明示する。
  */
 export function makeM1Profile(yearEndBalance: number, borrowingCap = 40_000_000): YearProfile {
   return makeProfile({
+    furusato: { method: 'taxReturn', donatedAmount: 0, safetyRatio: 0.9, donations: [] },
     income: {
       monthly: monthlyAllYear(0, 0),
       bonuses: [],

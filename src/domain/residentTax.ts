@@ -1,5 +1,6 @@
-import type { HumanDeductionDiffTable, SpouseDeductionTable } from '../taxParams/schema';
+import type { Bracket, HumanDeductionDiffTable, SpouseDeductionTable } from '../taxParams/schema';
 import { calcDependentDeduction, calcDisabilityDeduction, calcSingleParentDeduction, calcSpouseDeduction } from './deductions';
+import { lookupTaxRate } from './incomeTax';
 import { floor100, floorYen, type MunicipalityConfig, type SpouseInput, type YearProfile, type Yen } from './types';
 
 /**
@@ -111,6 +112,32 @@ export function calcFurusatoSpecialCredit(
   const capValue = floorYen(incomeLevy * specialCapRatio);
   const capped = Math.min(raw, capValue) as Yen;
   return { raw, capped, capReached: raw > capValue };
+}
+
+/**
+ * 特例控除額・申告特例控除額の算式で使う所得税の税率(02仕様書§3.3.2)。
+ * 所得税の課税総所得金額ではなく、住民税の課税総所得金額から人的控除差の合計額を控除した金額に
+ * 応じた税率を用いる(地方税法附則第7条の2)。この金額が0円以下なら税率0%として扱い、
+ * 特例分の割合は90%になる。
+ */
+export function lookupFurusatoSpecialRate(taxableResident: Yen, humanDeductionDiff: Yen, brackets: Bracket[]): number {
+  const base = taxableResident - humanDeductionDiff;
+  if (base <= 0) return 0;
+  return lookupTaxRate(base as Yen, brackets).rate;
+}
+
+/**
+ * ワンストップ特例の申告特例控除額(地方税法附則第7条の2第2項)。
+ * ワンストップ特例では所得税の寄附金控除を行わないため、所得税から控除されるはずだった
+ * 「(寄附額−2,000円)×所得税率×1.021」に相当する額を住民税から控除して穴埋めする。
+ * 特例控除額に対する比率で定義されており、特例控除額が20%枠で頭打ちになっていれば
+ * 申告特例控除額もそれに応じて小さくなる。
+ */
+export function calcFurusatoOneStopCredit(specialCredit: Yen, marginalRate: number, reconstructionSurtaxRate: number): Yen {
+  const rateWithSurtax = marginalRate * (1 + reconstructionSurtaxRate);
+  const specialRatio = 0.9 - rateWithSurtax;
+  if (rateWithSurtax <= 0 || specialRatio <= 0) return 0 as Yen;
+  return floorYen(specialCredit * (rateWithSurtax / specialRatio));
 }
 
 export function calcPerCapitaLevy(config: MunicipalityConfig): Yen {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calcSnapshot } from '../engine';
-import { findFurusatoLimit } from '../furusato';
+import { findFurusatoLimit, selfBurden, SELF_BURDEN_BUDGET } from '../furusato';
 import type { Yen } from '../types';
 import { TAX_PARAMS_2026, emptyIncome, makeM1Profile, makeProfile, monthlyAllYear, yokohamaMunicipality } from './testHelpers';
 
@@ -73,6 +73,50 @@ describe('calcSnapshot: M1モデルケース (03詳細設計書§10.2)', () => {
     expect(incomeTaxReduction).toBe(0);
     expect(residentReduction).toBe(66_300);
     expect(selfBurden).toBe(133_700);
+  });
+});
+
+describe('calcSnapshot: ワンストップ特例の申告特例控除額 (02仕様書§3.3.2)', () => {
+  /** M1と同じ収入・住宅ローンだが、寄附の申告方法だけワンストップ特例にしたケース */
+  function oneStopProfile() {
+    const base = makeM1Profile(32_000_000);
+    return { ...base, furusato: { ...base.furusato, method: 'oneStop' as const } };
+  }
+
+  it('所得税の寄附金控除を行わず、所得税額は寄附の有無で変わらない', () => {
+    const profile = oneStopProfile();
+    const zero = calcSnapshot(profile, 0 as Yen, TAX_PARAMS_2026, 'standard');
+    const withD = calcSnapshot(profile, 50_000 as Yen, TAX_PARAMS_2026, 'standard');
+    expect(withD.incomeTax.deductions.donation).toBe(0);
+    expect(withD.incomeTax.taxableIncome).toBe(zero.incomeTax.taxableIncome);
+    expect(withD.housingLoan.carriedToResidentTax).toBe(zero.housingLoan.carriedToResidentTax);
+  });
+
+  it('基本分+特例分+申告特例控除額が(寄附額−2,000円)と一致する(1円未満切り捨てを除く)', () => {
+    const snap = calcSnapshot(oneStopProfile(), 50_000 as Yen, TAX_PARAMS_2026, 'standard');
+    expect(snap.furusato.specialCapReached).toBe(false);
+    const total = snap.residentTax.furusatoCreditBasic + snap.residentTax.furusatoCreditSpecial + snap.residentTax.furusatoCreditOneStop;
+    expect(total).toBeGreaterThanOrEqual(48_000 - 3);
+    expect(total).toBeLessThanOrEqual(48_000);
+  });
+
+  it('住宅ローン控除で所得税が0円でも自己負担が2,000円台に収まる(確定申告ルートとの差)', () => {
+    const oneStop = oneStopProfile();
+    const taxReturn = makeM1Profile(32_000_000);
+    expect(selfBurden(oneStop, 50_000 as Yen, TAX_PARAMS_2026, 'standard')).toBeLessThanOrEqual(SELF_BURDEN_BUDGET);
+    expect(selfBurden(taxReturn, 50_000 as Yen, TAX_PARAMS_2026, 'standard')).toBeGreaterThan(SELF_BURDEN_BUDGET);
+  });
+
+  it('医療費控除がある年はワンストップ特例を選んでいても確定申告ルートで計算する(FR-14と整合)', () => {
+    const base = oneStopProfile();
+    const profile = {
+      ...base,
+      deductions: { ...base.deductions, medical: { paid: 300_000, reimbursed: 0, selfMedication: 0, mode: 'auto' as const } },
+    };
+    const snap = calcSnapshot(profile, 50_000 as Yen, TAX_PARAMS_2026, 'standard');
+    expect(snap.furusato.usesOneStop).toBe(false);
+    expect(snap.residentTax.furusatoCreditOneStop).toBe(0);
+    expect(snap.incomeTax.deductions.donation).toBe(48_000);
   });
 });
 

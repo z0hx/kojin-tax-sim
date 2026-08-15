@@ -2,14 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   calcAdjustmentCredit,
   calcFurusatoBasicCredit,
+  calcFurusatoOneStopCredit,
   calcFurusatoSpecialCredit,
+  lookupFurusatoSpecialRate,
   calcIncomeLevy,
   calcIncomeLevyBeforeAdjustment,
   calcIncomeLevyFinal,
   calcPerCapitaLevy,
 } from '../residentTax';
 import type { Yen } from '../types';
-import { yokohamaMunicipality } from './testHelpers';
+import { TAX_PARAMS_2026, yokohamaMunicipality } from './testHelpers';
 
 const CUTOFF = 25_000_000;
 const BELOW_CUTOFF_INCOME = 5_000_000 as Yen;
@@ -88,5 +90,36 @@ describe('calcIncomeLevyFinal (T-16 端数処理)', () => {
 describe('calcPerCapitaLevy', () => {
   it('市町村+道府県+森林環境税の合算', () => {
     expect(calcPerCapitaLevy(yokohamaMunicipality())).toBe(3900 + 1000 + 1000);
+  });
+});
+
+describe('lookupFurusatoSpecialRate (02仕様書§3.3.2)', () => {
+  const brackets = TAX_PARAMS_2026.incomeTax.brackets;
+
+  it('住民税の課税総所得金額から人的控除差を引いた金額で税率帯を判定する', () => {
+    // 2,000,000 − 50,000 = 1,950,000 → 5%帯の上限ちょうど
+    expect(lookupFurusatoSpecialRate(2_000_000 as Yen, 50_000 as Yen, brackets)).toBe(0.05);
+    // 2,001,000 − 50,000 = 1,951,000 → 10%帯
+    expect(lookupFurusatoSpecialRate(2_001_000 as Yen, 50_000 as Yen, brackets)).toBe(0.1);
+  });
+
+  it('0円以下になる場合は0%として扱う(特例分の割合が90%になる)', () => {
+    expect(lookupFurusatoSpecialRate(50_000 as Yen, 50_000 as Yen, brackets)).toBe(0);
+    expect(lookupFurusatoSpecialRate(0 as Yen, 50_000 as Yen, brackets)).toBe(0);
+  });
+});
+
+describe('calcFurusatoOneStopCredit (ワンストップ特例の申告特例控除額)', () => {
+  it('特例分と合わせると(寄附額−2,000円)×90%になる', () => {
+    const donationBase = 48_000; // 寄附50,000円 − 2,000円
+    const special = Math.floor(donationBase * (0.9 - 0.1 * 1.021));
+    const oneStop = calcFurusatoOneStopCredit(special as Yen, 0.1, 0.021);
+    // 特例分 + 申告特例控除額 = (寄附額−2,000円) × 90%(1円未満の切り捨てを除く)
+    expect(special + oneStop).toBeGreaterThanOrEqual(Math.floor(donationBase * 0.9) - 2);
+    expect(special + oneStop).toBeLessThanOrEqual(Math.floor(donationBase * 0.9));
+  });
+
+  it('税率0%の場合は0円になる', () => {
+    expect(calcFurusatoOneStopCredit(10_000 as Yen, 0, 0.021)).toBe(0);
   });
 });

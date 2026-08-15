@@ -7,6 +7,28 @@ const STEP = 1000;
 // 十分大きい初期上限を取る(二分探索のためlog2(20,000,000/1000)≈15回程度の増加で済む)。
 const INITIAL_HI = 20_000_000;
 const ALLOWED_SELF_BURDEN = 2000;
+/**
+ * 端数処理の許容幅。02仕様書§4.1の判定式は「自己負担(D) ≦ 2,000円」だが、差分方式の自己負担額には
+ * 税額計算の100円未満切り捨てに由来する端数が乗るため、2,000円ちょうどで切ると上限額が大きく縮む。
+ *
+ * 差分に効きうる切り捨ては次の3段で、それぞれ最大99円ずれる(合計297円 < 300円)。
+ *   1. 差引所得税額の100円未満切り捨て
+ *   2. 復興特別所得税の100円未満切り捨て
+ *   3. 住民税所得割(確定)の100円未満切り捨て
+ * 課税総所得金額の1,000円未満切り捨ては、探索が1,000円刻みで寄附金控除額の差も1,000円の倍数に
+ * なるため、2ケースの差分では相殺されて効かない(総所得金額×40%の上限が効く寄附額まで行くと
+ * 相殺されないが、そこは上限額よりはるかに先で自己負担も桁違いに大きく、判定に影響しない)。
+ *
+ * 上限額を超えた先では自己負担が1,000円あたり(90% − 所得税率×1.021)×1,000円 ≧ 440円(45%税率帯)
+ * 増えるため、300円の許容で上限を超えた寄附額を取り込むことはあっても1ステップ(1,000円)に
+ * とどまる。上限を数万円単位で取りこぼす従来の挙動より実態に近い。
+ *
+ * なお、所得税額が住宅ローン控除で0円かつ住民税側の控除枠も埋まっている年分では、自己負担は
+ * 端数ではなく寄附額に比例して増える。この帯では300円の許容がそのまま「自己負担2,300円までは
+ * 上限とみなす」意味を持つが、内訳表示は実額の自己負担を返すため過小表示にはならない。
+ */
+const SELF_BURDEN_ROUNDING_SLACK = 300;
+export const SELF_BURDEN_BUDGET = ALLOWED_SELF_BURDEN + SELF_BURDEN_ROUNDING_SLACK;
 const LINEAR_GUARD_STEPS = 5;
 
 /** 02仕様書§4.2: 「寄附なし」「寄附額D」の2ケースの税額差から自己負担額を求める */
@@ -44,7 +66,7 @@ export function findFurusatoLimit(profile: YearProfile, params: TaxParams, mode:
     return { limit: 0 as Yen, recommended: 0 as Yen, approxByFormula, snapshotAtZero, snapshotAtLimit: snapshotAtZero };
   }
 
-  if (selfBurden(profile, STEP as Yen, params, mode) > ALLOWED_SELF_BURDEN) {
+  if (selfBurden(profile, STEP as Yen, params, mode) > SELF_BURDEN_BUDGET) {
     return { limit: 0 as Yen, recommended: 0 as Yen, approxByFormula, snapshotAtZero, snapshotAtLimit: snapshotAtZero };
   }
 
@@ -52,7 +74,7 @@ export function findFurusatoLimit(profile: YearProfile, params: TaxParams, mode:
   let hi = INITIAL_HI;
   while (hi - lo > STEP) {
     const mid = floorTo((lo + hi) / 2, STEP);
-    if (selfBurden(profile, mid as Yen, params, mode) <= ALLOWED_SELF_BURDEN) lo = mid;
+    if (selfBurden(profile, mid as Yen, params, mode) <= SELF_BURDEN_BUDGET) lo = mid;
     else hi = mid;
   }
   // 単調性ガード: 二分探索終了時点のloを基点に固定し、そこから最大5ステップだけ線形に前進検証する。
@@ -60,7 +82,7 @@ export function findFurusatoLimit(profile: YearProfile, params: TaxParams, mode:
   //  実質無制限の線形探索になってしまうバグがあったため、基点をguardStartとして固定する)
   const guardStart = lo;
   for (let d = guardStart + STEP; d <= guardStart + STEP * LINEAR_GUARD_STEPS; d += STEP) {
-    if (selfBurden(profile, d as Yen, params, mode) <= ALLOWED_SELF_BURDEN) lo = d;
+    if (selfBurden(profile, d as Yen, params, mode) <= SELF_BURDEN_BUDGET) lo = d;
   }
 
   const limit = lo as Yen;
