@@ -127,7 +127,10 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={confirmDisabled}
-            style={danger ? { background: 'var(--color-danger)', color: '#fff', border: 'none' } : undefined}
+            /* 文字色は白固定にしない。ダークモードの--color-danger(明るい赤)に白文字を重ねると
+               コントラストが2.5:1程度しか出ず読みにくいため、背景色トークンを文字色に使う
+               (明色では白、暗色では暗いグレーになり、どちらでも赤地とのコントラストを確保できる) */
+            style={danger ? { background: 'var(--color-danger)', color: 'var(--color-bg)', border: 'none' } : undefined}
           >
             {busy ? '処理中…' : confirmLabel}
           </button>

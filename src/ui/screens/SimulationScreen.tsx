@@ -6,6 +6,7 @@ import { buildSelfBurdenLadder, selfBurden } from '../../domain/furusato';
 import type { YearProfile, Yen } from '../../domain/types';
 import type { TaxParams } from '../../taxParams/schema';
 import { buildSelfBurdenCurve, CURVE_STEP_MIN } from '../selfBurdenCurve';
+import { tooltipContentStyle, tooltipLabelStyle } from '../chartTheme';
 
 /**
  * S-06 シミュレーション画面(02仕様書§5、Issue #11、FR-12)。
@@ -139,12 +140,15 @@ export function SimulationScreen() {
         <h2 style={{ fontSize: '1rem' }}>自己負担曲線</h2>
         <div style={{ width: '100%', height: 300 }}>
           <ResponsiveContainer>
-            <LineChart data={curveData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+            {/* 上限の縦線ラベル(position:'top')が描画領域の外にはみ出して欠けないよう、上マージンを確保する */}
+            <LineChart data={curveData} margin={{ top: 24, right: 20, left: 0, bottom: 10 }}>
               <XAxis dataKey="donation" type="number" domain={[0, maxDonation]} tickFormatter={(v: number) => `${(v / 10000).toLocaleString()}万`} />
               <YAxis tickFormatter={(v: number) => `${(v / 1000).toLocaleString()}千`} />
               <Tooltip
                 formatter={(value) => `${Number(value).toLocaleString()}円`}
                 labelFormatter={(label) => `寄附額 ${Number(label).toLocaleString()}円`}
+                contentStyle={tooltipContentStyle}
+                labelStyle={tooltipLabelStyle}
               />
               <ReferenceLine
                 x={limitAmount}

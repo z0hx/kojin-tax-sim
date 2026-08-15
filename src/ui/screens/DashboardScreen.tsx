@@ -6,6 +6,7 @@ import { WarningBannerList } from '../components/WarningBannerList';
 import { PrintButton } from '../components/PrintButton';
 import { daysSince } from '../dateUtils';
 import { formatRateAsPercent } from '../parseAmount';
+import { tooltipContentStyle, tooltipLabelStyle } from '../chartTheme';
 import { compareWithActuals } from '../../domain/actuals';
 import { buildSelfBurdenLadder, findLadderHintRow } from '../../domain/furusato';
 import { isTaxParamsStale } from '../../taxParams/loader';
@@ -327,7 +328,11 @@ export function DashboardScreen() {
             <BarChart data={breakdownData} layout="vertical" margin={{ left: 24 }}>
               <XAxis type="number" hide />
               <YAxis type="category" dataKey="name" width={100} />
-              <Tooltip formatter={(value) => `${Number(value).toLocaleString()}円`} />
+              <Tooltip
+                formatter={(value) => `${Number(value).toLocaleString()}円`}
+                contentStyle={tooltipContentStyle}
+                labelStyle={tooltipLabelStyle}
+              />
               <Bar dataKey="自己負担" stackId="a" fill="var(--color-series-1)" />
               <Bar dataKey={incomeTaxOrOneStopLabel} stackId="a" fill="var(--color-series-2)" />
               <Bar dataKey="住民税基本分" stackId="a" fill="var(--color-series-3)" />
