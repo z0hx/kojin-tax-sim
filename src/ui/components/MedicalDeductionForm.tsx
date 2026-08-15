@@ -98,6 +98,7 @@ export function MedicalDeductionForm({ value, totalIncome, params, oneStopWarnin
           inputMode="numeric"
           aria-label="支払医療費"
           value={paidText}
+          onFocus={() => paidText === '0' && setPaidText('')}
           onChange={(e) => handlePaidChange(e.target.value)}
           style={{ width: '8rem' }}
         />
@@ -111,6 +112,7 @@ export function MedicalDeductionForm({ value, totalIncome, params, oneStopWarnin
           inputMode="numeric"
           aria-label="補填金額"
           value={reimbursedText}
+          onFocus={() => reimbursedText === '0' && setReimbursedText('')}
           onChange={(e) => handleReimbursedChange(e.target.value)}
           style={{ width: '8rem' }}
         />
@@ -124,6 +126,7 @@ export function MedicalDeductionForm({ value, totalIncome, params, oneStopWarnin
           inputMode="numeric"
           aria-label="セルフメディケーション対象額"
           value={selfMedicationText}
+          onFocus={() => selfMedicationText === '0' && setSelfMedicationText('')}
           onChange={(e) => handleSelfMedicationChange(e.target.value)}
           style={{ width: '8rem' }}
         />

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { monthsInRange } from '../../domain/income';
 import type { LeavePeriod } from '../../domain/types';
+import { parseNonNegativeInt } from '../parseAmount';
 
 interface LeavePeriodEditorProps {
   leavePeriods: LeavePeriod[];
@@ -76,8 +77,8 @@ export function LeavePeriodEditor({ leavePeriods, year, onChange }: LeavePeriodE
     setError(null);
     const lo = Math.min(startMonth, endMonth);
     const hi = Math.max(startMonth, endMonth);
-    const amount = Number(benefitAmount);
-    if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+    const amount = parseNonNegativeInt(benefitAmount);
+    if (amount === null) {
       setError('給付金額は0以上の整数で入力してください');
       return;
     }
@@ -184,6 +185,7 @@ export function LeavePeriodEditor({ leavePeriods, year, onChange }: LeavePeriodE
             type="text"
             inputMode="numeric"
             value={benefitAmount}
+            onFocus={() => benefitAmount === '0' && setBenefitAmount('')}
             onChange={(e) => setBenefitAmount(e.target.value)}
             style={{ marginLeft: '0.25rem', width: '8rem' }}
           />

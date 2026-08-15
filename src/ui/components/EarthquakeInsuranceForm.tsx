@@ -1,4 +1,4 @@
-import { parseNonNegativeInt } from '../parseAmount';
+import { AmountInput } from './AmountInput';
 
 interface EarthquakeInsuranceValue {
   long: number;
@@ -16,32 +16,22 @@ export function EarthquakeInsuranceForm({ value, onChange }: EarthquakeInsurance
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
       <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
         <span style={{ minWidth: '9rem' }}>地震保険料(本体)</span>
-        <input
+        <AmountInput
           className="amount"
-          type="text"
-          inputMode="numeric"
-          aria-label="地震保険料(本体)"
+          ariaLabel="地震保険料(本体)"
           value={value.long}
-          onChange={(e) => {
-            const n = parseNonNegativeInt(e.target.value);
-            if (n !== null) onChange({ ...value, long: n });
-          }}
+          onChange={(n) => onChange({ ...value, long: n })}
           style={{ width: '8rem' }}
         />
         円
       </label>
       <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
         <span style={{ minWidth: '9rem' }}>旧長期損害保険料</span>
-        <input
+        <AmountInput
           className="amount"
-          type="text"
-          inputMode="numeric"
-          aria-label="旧長期損害保険料"
+          ariaLabel="旧長期損害保険料"
           value={value.short}
-          onChange={(e) => {
-            const n = parseNonNegativeInt(e.target.value);
-            if (n !== null) onChange({ ...value, short: n });
-          }}
+          onChange={(n) => onChange({ ...value, short: n })}
           style={{ width: '8rem' }}
         />
         円

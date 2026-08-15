@@ -7,6 +7,7 @@ import {
   type MonthlyRecord,
   type SocialInsuranceBreakdown,
 } from '../../domain/types';
+import { AmountInput } from './AmountInput';
 
 interface MonthlyIncomeGridProps {
   monthly: MonthlyRecord[];
@@ -21,14 +22,6 @@ function exemptMonthSet(leavePeriods: LeavePeriod[], year: number): Set<number> 
     for (const m of monthsInRange(lp.startYm, lp.endYm, year)) set.add(m);
   }
   return set;
-}
-
-/** 0以上の整数以外はnull(呼び出し側で無視し、入力欄には無効な文字列を残さない) */
-function parseYen(input: string): number | null {
-  if (input.trim().length === 0) return 0;
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
 }
 
 const CELL: CSSProperties = { padding: '0.25rem 0.5rem', verticalAlign: 'top' };
@@ -102,17 +95,12 @@ export function MonthlyIncomeGrid({ monthly, leavePeriods, year, onChange }: Mon
                 </label>
               </td>
               <td style={CELL}>
-                <input
+                <AmountInput
                   className="amount"
-                  type="text"
-                  inputMode="numeric"
-                  aria-label={`${rec.month}月の給与`}
+                  ariaLabel={`${rec.month}月の給与`}
                   value={isExempt ? 0 : rec.grossSalary}
                   disabled={isExempt}
-                  onChange={(e) => {
-                    const v = parseYen(e.target.value);
-                    if (v !== null) updateMonth(rec.month, { grossSalary: v });
-                  }}
+                  onChange={(v) => updateMonth(rec.month, { grossSalary: v })}
                   style={{ width: '8rem' }}
                 />
               </td>
@@ -143,17 +131,12 @@ export function MonthlyIncomeGrid({ monthly, leavePeriods, year, onChange }: Mon
                     {/* 育休対象月は内訳入力を選んでいても、0円固定であることが分かる一括入力欄を出す
                         (他の月と同じ形で「0円・変更不可」を示すため) */}
                     {(!isBreakdown || isExempt) && (
-                      <input
+                      <AmountInput
                         className="amount"
-                        type="text"
-                        inputMode="numeric"
-                        aria-label={`${rec.month}月の社会保険料`}
+                        ariaLabel={`${rec.month}月の社会保険料`}
                         value={isExempt ? 0 : rec.socialInsurance}
                         disabled={isExempt}
-                        onChange={(e) => {
-                          const v = parseYen(e.target.value);
-                          if (v !== null) updateMonth(rec.month, { socialInsurance: v });
-                        }}
+                        onChange={(v) => updateMonth(rec.month, { socialInsurance: v })}
                         style={{ width: '8rem' }}
                       />
                     )}
@@ -164,16 +147,11 @@ export function MonthlyIncomeGrid({ monthly, leavePeriods, year, onChange }: Mon
                       {SOCIAL_INSURANCE_ITEMS.map((item) => (
                         <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
                           <span style={{ minWidth: '7rem' }}>{item.label}</span>
-                          <input
+                          <AmountInput
                             className="amount"
-                            type="text"
-                            inputMode="numeric"
-                            aria-label={`${rec.month}月の${item.label}`}
+                            ariaLabel={`${rec.month}月の${item.label}`}
                             value={breakdown[item.key]}
-                            onChange={(e) => {
-                              const v = parseYen(e.target.value);
-                              if (v !== null) updateBreakdown(rec, item.key, v);
-                            }}
+                            onChange={(v) => updateBreakdown(rec, item.key, v)}
                             style={{ width: '8rem' }}
                           />
                         </label>

@@ -9,7 +9,7 @@ import { EarthquakeInsuranceForm } from '../components/EarthquakeInsuranceForm';
 import { MedicalDeductionForm } from '../components/MedicalDeductionForm';
 import { SpouseDependentForm } from '../components/SpouseDependentForm';
 import { DisabilityDeductionForm } from '../components/DisabilityDeductionForm';
-import { parseNonNegativeInt } from '../parseAmount';
+import { AmountInput } from '../components/AmountInput';
 
 /**
  * S-03 控除入力画面(02仕様書§5相当、03詳細設計書§6.3)。
@@ -149,16 +149,11 @@ export function DeductionsScreen() {
       <AccordionSection title="iDeCo(小規模企業共済等掛金控除)">
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <span style={{ minWidth: '9rem' }}>年間掛金合計</span>
-          <input
+          <AmountInput
             className="amount"
-            type="text"
-            inputMode="numeric"
-            aria-label="iDeCo年間掛金合計"
+            ariaLabel="iDeCo年間掛金合計"
             value={d.ideco}
-            onChange={(e) => {
-              const n = parseNonNegativeInt(e.target.value);
-              if (n !== null) updateDeductions({ ideco: n });
-            }}
+            onChange={(n) => updateDeductions({ ideco: n })}
             style={{ width: '8rem' }}
           />
           円
