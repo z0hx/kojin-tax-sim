@@ -25,8 +25,13 @@ export interface LifeInsuranceTable {
   oldGeneral: InsuranceBracketTable;
   oldPension: InsuranceBracketTable;
   newTotalCap: number;
-  /** 令和8年分限定・子育て世帯特例(23歳未満の扶養親族)。要確認パラメータ(03詳細設計書§3.3脚注相当) */
-  newGeneralChildUnder23Cap?: number;
+  /**
+   * 令和8年分限定の子育て世帯特例(23歳未満の扶養親族がいる場合)。新契約の一般生命保険料控除だけ
+   * 上限が4万円→6万円になる。区分の境目も上限額に比例して1.5倍になる(新4万円の表が2万/4万/8万、
+   * 旧5万円の表が2.5万/5万/10万と、上限額と同じ比で刻まれているのと同じ構造)。
+   * 住民税側には特例が無いため、residentTax.lifeInsuranceにはこの表を置かない。
+   */
+  newGeneralChildUnder23?: InsuranceBracketTable;
 }
 
 export interface SalaryDeductionTable {
@@ -64,9 +69,16 @@ export interface SpouseSpecialRow {
  * 900万円超の2/3・1/3段階は基準額からの計算による近似であり、要確認パラメータ。
  */
 export interface SpouseDeductionTable {
-  regularGeneralBase: number; // 配偶者控除(一般、配偶者の合計所得金額48万円以下)
+  regularGeneralBase: number; // 配偶者控除(一般)
   regularElderlyBase: number; // 配偶者控除(老人控除対象配偶者、70歳以上)
-  special: SpouseSpecialRow[]; // 配偶者特別控除(配偶者の合計所得金額48万円超133万円以下)
+  /**
+   * 配偶者控除(同一生計配偶者)の対象となる配偶者の合計所得金額の上限。扶養親族の所得要件と同じ額で、
+   * 令和7年分は58万円、令和8年分以後は62万円(令和6年分までは48万円)。年分により動くためパラメータ化する。
+   */
+  regularIncomeLimit: number;
+  /** 配偶者特別控除の対象となる配偶者の合計所得金額の上限(133万円)。これを超えると0円 */
+  specialIncomeLimit: number;
+  special: SpouseSpecialRow[]; // 配偶者特別控除(regularIncomeLimit超specialIncomeLimit以下)
   taxpayerIncomeTierThresholds: [number, number]; // [9,000,000, 9,500,000]
   taxpayerIncomeCutoff: number; // 10,000,000。これを超えると全区分0円
 }

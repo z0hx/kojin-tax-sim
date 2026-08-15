@@ -64,13 +64,21 @@ describe('calcLifeInsuranceDeduction (T-13 新旧併用)', () => {
   });
 
   it('2026年分: 子育て世帯特例で一般区分の上限が60,000円に拡充される(所得税のみ)', () => {
-    // 80,000円ちょうどは通常区分の式(×1/4+20,000=40,000)と上限が一致する境界のため、
-    // 拡充の効果を確認するには「80,001円〜」の定額区分に入る100,000円で検証する
+    // 特例の表は上限額に比例して区分の境目も1.5倍になる(3万/6万/12万)。上限の60,000円に達するのは
+    // 支払額120,000円から
+    const result = calcLifeInsuranceDeduction(
+      { new: { general: 120_000, nursing: 0, pension: 0 }, old: { general: 0, pension: 0 }, hasChildUnder23: true },
+      TAX_PARAMS_2026.incomeTax.lifeInsurance
+    );
+    expect(result).toBe(60_000);
+  });
+
+  it('2026年分: 子育て世帯特例の中間区分は×1/4+30,000で連続する(上限だけの差し替えではない)', () => {
     const result = calcLifeInsuranceDeduction(
       { new: { general: 100_000, nursing: 0, pension: 0 }, old: { general: 0, pension: 0 }, hasChildUnder23: true },
       TAX_PARAMS_2026.incomeTax.lifeInsurance
     );
-    expect(result).toBe(60_000);
+    expect(result).toBe(55_000);
   });
 
   it('子育て世帯特例なしなら100,000円でも通常上限40,000円のまま', () => {
@@ -213,5 +221,27 @@ describe('calcDependentDeduction (レビュー指摘High#2是正: 16歳未満を
       TAX_PARAMS_2026.incomeTax.humanDeductions
     );
     expect(result).toBe(TAX_PARAMS_2026.incomeTax.humanDeductions.dependentSpecific);
+  });
+});
+
+describe('calcSpouseDeduction: 配偶者控除の所得要件(年分で動く)', () => {
+  const elderly = { totalIncome: 600_000, isElderly: true };
+
+  it('2026年分: 合計所得62万円以下の老人控除対象配偶者は配偶者控除48万円になる', () => {
+    expect(calcSpouseDeduction(elderly, 5_000_000 as Yen, TAX_PARAMS_2026.incomeTax.spouseDeduction)).toBe(480_000);
+  });
+
+  it('2025年分: 同じ配偶者は要件58万円を超えるため配偶者特別控除38万円になる', () => {
+    expect(calcSpouseDeduction(elderly, 5_000_000 as Yen, TAX_PARAMS_2025.incomeTax.spouseDeduction)).toBe(380_000);
+  });
+
+  it('2026年分: 要件62万円を超えると配偶者特別控除に切り替わる', () => {
+    const over = { totalIncome: 630_000, isElderly: true };
+    expect(calcSpouseDeduction(over, 5_000_000 as Yen, TAX_PARAMS_2026.incomeTax.spouseDeduction)).toBe(380_000);
+  });
+
+  it('配偶者特別控除の上限(133万円)を超えると0円', () => {
+    const over = { totalIncome: 1_330_001 };
+    expect(calcSpouseDeduction(over, 5_000_000 as Yen, TAX_PARAMS_2026.incomeTax.spouseDeduction)).toBe(0);
   });
 });

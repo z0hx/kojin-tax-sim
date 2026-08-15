@@ -326,13 +326,13 @@ describe('DashboardScreen(S-01)', () => {
     await useAppStore.getState().createBlankYear(2026);
     await flushNow();
 
-    // 2026.jsonのverifiedAtは2026-07-26。2年後の時点では未確認期間が1年を超える
+    // 2026.jsonのverifiedAtは2026-08-15。2年後の時点では未確認期間が1年を超える
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       vi.setSystemTime(new Date(2028, 0, 1));
       await renderAppAndWaitLoaded();
       await waitFor(() => expect(screen.getByText(/税制パラメータは最終確認日/)).toBeInTheDocument());
-      expect(screen.getByText(/税制パラメータは最終確認日/)).toHaveTextContent('2026-07-26');
+      expect(screen.getByText(/税制パラメータは最終確認日/)).toHaveTextContent('2026-08-15');
 
       await userEvent.click(screen.getByRole('button', { name: '出典を確認' }));
       await waitFor(() => expect(screen.getByRole('heading', { name: /計算明細/ })).toBeInTheDocument());
