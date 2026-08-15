@@ -3,6 +3,9 @@
    リファラが第三者に渡るうえ、オフライン動作の条件(NFR-15)も増える。桁揃えは下の
    font-variant-numeric: tabular-nums で満たせるため、フォント自体の指定は不要と判断した。 */
 :root {
+  /* フォーム部品(input/select/button/range)・スクロールバーなどブラウザ既定のUIを配色に追従させる。
+     宣言が無いと、ページがダークでも入力欄だけ白地・黒文字のまま描画され、明暗が入り混じって読みにくい */
+  color-scheme: light;
   --font-sans: system-ui, sans-serif;
   --font-numeric: system-ui, sans-serif;
   --color-bg: #ffffff;
@@ -25,6 +28,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --color-bg: #1a1a1a;
     --color-fg: #f0f0f0;
     --color-border: #444444;
@@ -48,6 +52,20 @@ body {
   color: var(--color-fg);
 }
 
+/* rechartsは軸ラベル等の文字色をSVGのfill属性(#666固定)で描画する。ダークモードでは背景との
+   コントラストが2倍程度しか無く読めないため、配色トークンで上書きする。プレゼンテーション属性は
+   CSSより優先度が低いので、!importantを使わずに効く */
+.recharts-cartesian-axis-tick-value {
+  fill: var(--color-muted);
+}
+
+/* 軸線・目盛線もrechartsの既定は#666固定。明色では既定と同じ見た目のまま、暗色でだけ明るくなるよう
+   目盛ラベルと同じトークンを使う */
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: var(--color-muted);
+}
+
 /* 金額表示は等幅数字にし、桁が揃うようにする(S-05計算明細等で使用) */
 .amount {
   font-family: var(--font-numeric);
@@ -59,6 +77,7 @@ body {
    ナビゲーション等の操作要素は紙面に不要なため.no-printで非表示にする(免責表示は対象外) */
 @media print {
   :root {
+    color-scheme: light;
     --color-bg: #ffffff;
     --color-fg: #000000;
     --color-border: #999999;

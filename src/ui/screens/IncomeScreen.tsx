@@ -103,7 +103,7 @@ export function IncomeScreen() {
           収入の確定率 {confidencePercent}%（{actualMonthCount}ヶ月が実績）
         </p>
         <div style={{ height: 8, background: 'var(--color-border)', borderRadius: 4, overflow: 'hidden', maxWidth: 300 }}>
-          <div style={{ width: `${confidencePercent}%`, height: '100%', background: '#3366cc' }} />
+          <div style={{ width: `${confidencePercent}%`, height: '100%', background: 'var(--color-series-1)' }} />
         </div>
         <button type="button" onClick={handleFillEstimated} style={{ marginTop: '0.5rem' }}>
           見込み月を直近実績月で埋める
