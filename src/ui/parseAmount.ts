@@ -1,6 +1,11 @@
+/** 桁区切りのカンマを除去する。ペーストされた金額文字列("1,000,000"等)をパース前に正規化するために使う。 */
+export function stripThousandsSeparators(input: string): string {
+  return input.replace(/,/g, '');
+}
+
 /** フォーム入力欄共通の整数バリデーション。0以上の整数以外はnullを返す(呼び出し側で無視する)。 */
 export function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
+  const n = Number(stripThousandsSeparators(input));
   if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
   return n;
 }
@@ -11,7 +16,7 @@ export function parseNonNegativeInt(input: string): number | null {
  * 小数点以下6桁(比率にして0.0001%単位)に丸める。0以上でない場合や不正な入力はnullを返す。
  */
 export function parsePercentToRate(input: string): number | null {
-  const n = Number(input);
+  const n = Number(stripThousandsSeparators(input));
   if (!Number.isFinite(n) || n < 0) return null;
   return Number((n / 100).toFixed(6));
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Dependent, SpouseInput } from '../../domain/types';
 import { parseNonNegativeInt } from '../parseAmount';
+import { AmountInput } from './AmountInput';
 
 interface SpouseDependentFormProps {
   spouse: SpouseInput | undefined;
@@ -55,16 +56,11 @@ export function SpouseDependentForm({ spouse, dependents, onChangeSpouse, onChan
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ minWidth: '9rem' }}>配偶者の合計所得金額</span>
-              <input
+              <AmountInput
                 className="amount"
-                type="text"
-                inputMode="numeric"
-                aria-label="配偶者の合計所得金額"
+                ariaLabel="配偶者の合計所得金額"
                 value={spouse.totalIncome}
-                onChange={(e) => {
-                  const n = parseNonNegativeInt(e.target.value);
-                  if (n !== null) onChangeSpouse({ ...spouse, totalIncome: n });
-                }}
+                onChange={(n) => onChangeSpouse({ ...spouse, totalIncome: n })}
                 style={{ width: '8rem' }}
               />
               円
@@ -86,6 +82,7 @@ export function SpouseDependentForm({ spouse, dependents, onChangeSpouse, onChan
               type="text"
               inputMode="numeric"
               value={ageInput}
+              onFocus={() => ageInput === '0' && setAgeInput('')}
               onChange={(e) => setAgeInput(e.target.value)}
               style={{ marginLeft: '0.25rem', width: '5rem' }}
             />

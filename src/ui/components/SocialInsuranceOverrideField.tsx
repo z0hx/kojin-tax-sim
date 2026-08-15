@@ -57,6 +57,7 @@ export function SocialInsuranceOverrideField({ actualSum, value, onChange }: Soc
             type="text"
             inputMode="numeric"
             value={draft}
+            onFocus={() => draft === '0' && setDraft('')}
             onChange={(e) => handleDraftChange(e.target.value)}
             style={{ marginLeft: '0.5rem', width: '10rem' }}
           />

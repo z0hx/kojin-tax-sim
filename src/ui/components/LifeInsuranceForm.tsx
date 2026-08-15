@@ -1,5 +1,5 @@
 import type { LifeInsuranceInput } from '../../domain/types';
-import { parseNonNegativeInt } from '../parseAmount';
+import { AmountInput } from './AmountInput';
 
 interface LifeInsuranceFormProps {
   value: LifeInsuranceInput;
@@ -11,18 +11,7 @@ function AmountField({ label, amount, onChange }: { label: string; amount: numbe
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
       <span style={{ minWidth: '9rem' }}>{label}</span>
-      <input
-        className="amount"
-        type="text"
-        inputMode="numeric"
-        aria-label={label}
-        value={amount}
-        onChange={(e) => {
-          const n = parseNonNegativeInt(e.target.value);
-          if (n !== null) onChange(n);
-        }}
-        style={{ width: '8rem' }}
-      />
+      <AmountInput className="amount" ariaLabel={label} value={amount} onChange={onChange} style={{ width: '8rem' }} />
       円
     </label>
   );

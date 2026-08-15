@@ -11,6 +11,10 @@ describe('parseNonNegativeInt', () => {
     expect(parseNonNegativeInt('1.5')).toBeNull();
     expect(parseNonNegativeInt('abc')).toBeNull();
   });
+  it('桁区切りのカンマを除去してからパースする(ペースト対応)', () => {
+    expect(parseNonNegativeInt('1,000,000')).toBe(1000000);
+    expect(parseNonNegativeInt('1,234')).toBe(1234);
+  });
 });
 
 describe('parsePercentToRate(Issue #8: 住宅ローン控除率入力の%→小数変換)', () => {
@@ -23,6 +27,9 @@ describe('parsePercentToRate(Issue #8: 住宅ローン控除率入力の%→小�
   it('負数・非数値はnull', () => {
     expect(parsePercentToRate('-1')).toBeNull();
     expect(parsePercentToRate('abc')).toBeNull();
+  });
+  it('桁区切りのカンマを除去してからパースする(ペースト対応)', () => {
+    expect(parsePercentToRate('1,000')).toBe(10);
   });
 });
 

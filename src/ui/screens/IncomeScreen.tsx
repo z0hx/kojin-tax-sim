@@ -5,13 +5,8 @@ import { estimateAnnualIncome, monthsInRange, sumNonTaxableBenefits } from '../.
 import { MonthlyIncomeGrid } from '../components/MonthlyIncomeGrid';
 import { LeavePeriodEditor } from '../components/LeavePeriodEditor';
 import { BonusEditor } from '../components/BonusEditor';
+import { AmountInput } from '../components/AmountInput';
 import { SUPPORTED_TAX_YEARS, latestSupportedTaxYear } from '../../taxParams/supportedYears';
-
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
-}
 
 /**
  * S-02 収入入力画面(02仕様書§5, FR-02〜FR-04)。
@@ -118,15 +113,10 @@ export function IncomeScreen() {
       <section style={{ marginTop: '1.5rem' }}>
         <label>
           その他給与収入(別の勤務先など、上記に含まれない分)
-          <input
+          <AmountInput
             className="amount"
-            type="text"
-            inputMode="numeric"
             value={income.otherSalaryIncome}
-            onChange={(e) => {
-              const v = parseNonNegativeInt(e.target.value);
-              if (v !== null) updateIncome({ otherSalaryIncome: v });
-            }}
+            onChange={(v) => updateIncome({ otherSalaryIncome: v })}
             style={{ marginLeft: '0.5rem', width: '10rem' }}
           />
           円

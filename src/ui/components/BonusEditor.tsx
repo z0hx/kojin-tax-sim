@@ -1,18 +1,13 @@
 import { useState } from 'react';
 import { isBonusExempt } from '../../domain/income';
 import type { Bonus, LeavePeriod } from '../../domain/types';
+import { parseNonNegativeInt } from '../parseAmount';
 
 interface BonusEditorProps {
   bonuses: Bonus[];
   leavePeriods: LeavePeriod[];
   year: number;
   onChange: (bonuses: Bonus[]) => void;
-}
-
-function parseNonNegativeInt(input: string): number | null {
-  const n = Number(input);
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  return n;
 }
 
 /**
@@ -79,7 +74,15 @@ export function BonusEditor({ bonuses, leavePeriods, year, onChange }: BonusEdit
         </label>
         <label>
           総支給額(円)
-          <input className="amount" type="text" inputMode="numeric" value={gross} onChange={(e) => setGross(e.target.value)} style={{ marginLeft: '0.25rem', width: '8rem' }} />
+          <input
+            className="amount"
+            type="text"
+            inputMode="numeric"
+            value={gross}
+            onFocus={() => gross === '0' && setGross('')}
+            onChange={(e) => setGross(e.target.value)}
+            style={{ marginLeft: '0.25rem', width: '8rem' }}
+          />
         </label>
         <label>
           社会保険料(円)
@@ -88,6 +91,7 @@ export function BonusEditor({ bonuses, leavePeriods, year, onChange }: BonusEdit
             type="text"
             inputMode="numeric"
             value={socialInsurance}
+            onFocus={() => socialInsurance === '0' && setSocialInsurance('')}
             onChange={(e) => setSocialInsurance(e.target.value)}
             style={{ marginLeft: '0.25rem', width: '8rem' }}
           />

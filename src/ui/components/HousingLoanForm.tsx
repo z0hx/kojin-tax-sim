@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HousingLoanInput } from '../../domain/types';
-import { formatRateAsPercent, parseNonNegativeInt, parsePercentToRate } from '../parseAmount';
+import { formatRateAsPercent, parsePercentToRate } from '../parseAmount';
+import { AmountInput } from './AmountInput';
 
 interface HousingLoanFormProps {
   value: HousingLoanInput | undefined;
@@ -91,14 +92,10 @@ export function HousingLoanForm({ value, year, previousYearBalance, onChange }: 
         <>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ minWidth: '9rem' }}>入居年</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              aria-label="入居年"
+            <AmountInput
+              ariaLabel="入居年"
               value={value.moveInYear}
-              onChange={(e) => {
-                const n = parseNonNegativeInt(e.target.value);
-                if (n === null) return;
+              onChange={(n) => {
                 // 入居年の変更にルールを追従させる。ただしユーザーがルールを手動で選択済みの
                 // 場合(ruleManuallySet)は上書きしない(レビュー3巡目是正: トグルON時の既定値
                 // 合わせだけでは、有効化後にmoveInYearだけ変更した場合にルールが古いままになり
@@ -112,17 +109,7 @@ export function HousingLoanForm({ value, year, previousYearBalance, onChange }: 
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ minWidth: '9rem' }}>適用年数</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              aria-label="適用年数"
-              value={value.years}
-              onChange={(e) => {
-                const n = parseNonNegativeInt(e.target.value);
-                if (n !== null) onChange({ ...value, years: n });
-              }}
-              style={{ width: '6rem' }}
-            />
+            <AmountInput ariaLabel="適用年数" value={value.years} onChange={(n) => onChange({ ...value, years: n })} style={{ width: '6rem' }} />
             年間
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -144,33 +131,23 @@ export function HousingLoanForm({ value, year, previousYearBalance, onChange }: 
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ minWidth: '9rem' }}>年末残高</span>
-            <input
+            <AmountInput
               className="amount"
-              type="text"
-              inputMode="numeric"
-              aria-label="年末残高"
+              ariaLabel="年末残高"
               value={value.yearEndBalance}
-              onChange={(e) => {
-                const n = parseNonNegativeInt(e.target.value);
-                if (n !== null) onChange({ ...value, yearEndBalance: n });
-              }}
+              onChange={(n) => onChange({ ...value, yearEndBalance: n })}
               style={{ width: '10rem' }}
             />
             円
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ minWidth: '9rem' }}>借入限度額</span>
-            <input
+            <AmountInput
               className="amount"
-              type="text"
-              inputMode="numeric"
-              aria-label="借入限度額"
-              aria-describedby="borrowing-cap-help"
+              ariaLabel="借入限度額"
+              ariaDescribedBy="borrowing-cap-help"
               value={value.borrowingCap}
-              onChange={(e) => {
-                const n = parseNonNegativeInt(e.target.value);
-                if (n !== null) onChange({ ...value, borrowingCap: n });
-              }}
+              onChange={(n) => onChange({ ...value, borrowingCap: n })}
               style={{ width: '10rem' }}
             />
             円

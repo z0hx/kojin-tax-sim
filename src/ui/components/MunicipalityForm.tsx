@@ -1,9 +1,9 @@
 import type { MunicipalityConfig } from '../../domain/types';
-import { formatRateAsPercent } from '../parseAmount';
+import { formatRateAsPercent, stripThousandsSeparators } from '../parseAmount';
 
 /** 空文字/NaN/負値はnullを返す(呼び出し側で「未入力・不正」としてブロックする。既定値へのフォールバックはしない) */
 function parseNonNegative(input: string): number | null {
-  const trimmed = input.trim();
+  const trimmed = stripThousandsSeparators(input.trim());
   if (trimmed.length === 0) return null;
   const n = Number(trimmed);
   if (!Number.isFinite(n) || n < 0) return null;
@@ -127,6 +127,7 @@ export function MunicipalityForm({ draft, onChange, errors, detailsOpen = false,
               type="text"
               inputMode="decimal"
               value={draft.municipalRatePct}
+              onFocus={() => draft.municipalRatePct === '0' && patch({ municipalRatePct: '' })}
               onChange={(e) => patch({ municipalRatePct: e.target.value })}
               aria-invalid={Boolean(errors.municipalRate)}
               style={{ display: 'block', marginTop: '0.25rem' }}
@@ -143,6 +144,7 @@ export function MunicipalityForm({ draft, onChange, errors, detailsOpen = false,
               type="text"
               inputMode="decimal"
               value={draft.prefecturalRatePct}
+              onFocus={() => draft.prefecturalRatePct === '0' && patch({ prefecturalRatePct: '' })}
               onChange={(e) => patch({ prefecturalRatePct: e.target.value })}
               aria-invalid={Boolean(errors.prefecturalRate)}
               style={{ display: 'block', marginTop: '0.25rem' }}
@@ -159,6 +161,7 @@ export function MunicipalityForm({ draft, onChange, errors, detailsOpen = false,
               type="text"
               inputMode="numeric"
               value={draft.municipalPerCapita}
+              onFocus={() => draft.municipalPerCapita === '0' && patch({ municipalPerCapita: '' })}
               onChange={(e) => patch({ municipalPerCapita: e.target.value })}
               aria-invalid={Boolean(errors.municipalCapita)}
               style={{ display: 'block', marginTop: '0.25rem' }}
@@ -175,6 +178,7 @@ export function MunicipalityForm({ draft, onChange, errors, detailsOpen = false,
               type="text"
               inputMode="numeric"
               value={draft.prefecturalPerCapita}
+              onFocus={() => draft.prefecturalPerCapita === '0' && patch({ prefecturalPerCapita: '' })}
               onChange={(e) => patch({ prefecturalPerCapita: e.target.value })}
               aria-invalid={Boolean(errors.prefecturalCapita)}
               style={{ display: 'block', marginTop: '0.25rem' }}

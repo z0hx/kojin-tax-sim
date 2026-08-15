@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useNavigation } from '../navigation';
 import { runScenario, compareScenarios, optimizeAcrossYears, type ScenarioOverride } from '../../domain/scenario';
 import { selectEligibleYearProfiles } from '../../store/selectors';
-import { parseNonNegativeInt, parseOptionalNonNegativeInt } from '../parseAmount';
+import { parseNonNegativeInt, parseOptionalNonNegativeInt, stripThousandsSeparators } from '../parseAmount';
 
 interface ScenarioForm {
   label: string;
@@ -31,7 +31,7 @@ function toOverride(form: ScenarioForm): ToOverrideResult {
     override.reinstatementMonth = n;
   }
   if (form.bonusMultiplier !== '') {
-    const n = Number(form.bonusMultiplier);
+    const n = Number(stripThousandsSeparators(form.bonusMultiplier));
     if (!Number.isFinite(n) || n < 0) return { ok: false, error: '賞与倍率は0以上の数値で入力してください。' };
     override.bonusMultiplier = n;
   }
