@@ -5,11 +5,13 @@ import { floor100, floorYen, type MunicipalityConfig, type SpouseInput, type Yea
 
 /**
  * 非課税限度額の算式で「本人以外」として数える人数(扶養親族数 + 同一生計配偶者)。
- * 同一生計配偶者は合計所得金額48万円以下の配偶者を指す(レビュー3巡目High是正: 配偶者が
- * 頭数に含まれておらず、扶養親族はいないが低所得の配偶者がいる世帯を非課税判定から漏らしていた)。
+ * 同一生計配偶者の所得要件(`spouseIncomeLimit`)は年分で動くため、税制パラメータの
+ * residentTax.spouseDeduction.regularIncomeLimitを渡す(令和7年分58万円、令和8年分以後62万円)。
+ * (レビュー3巡目High是正: 配偶者が頭数に含まれておらず、扶養親族はいないが低所得の配偶者がいる
+ * 世帯を非課税判定から漏らしていた。)
  */
-export function calcNonTaxableHeadcount(dependentsCount: number, spouse: SpouseInput | undefined): number {
-  const hasQualifyingSpouse = !!spouse && spouse.totalIncome <= 480_000;
+export function calcNonTaxableHeadcount(dependentsCount: number, spouse: SpouseInput | undefined, spouseIncomeLimit: number): number {
+  const hasQualifyingSpouse = !!spouse && spouse.totalIncome <= spouseIncomeLimit;
   return dependentsCount + (hasQualifyingSpouse ? 1 : 0);
 }
 

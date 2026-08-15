@@ -3,75 +3,244 @@
   "meta": {
     "sources": [
       "国税庁 令和7年分 所得税の税率",
-      "国税庁 令和7年度税制改正による基礎控除の見直し",
+      "国税庁 令和7年度税制改正による基礎控除の見直し等について",
       "総務省 個人住民税のしくみ"
     ],
-    "verifiedAt": "2026-07-26",
-    "notes": "02仕様書§3のとおり、令和7年度改正で基礎控除・給与所得控除の見直しがあった年分。実装前に一次情報での再確認が必須。residentTax.humanDeductionDiff.singleParentは10,000円としているが、ひとり親控除の人的控除差は歴史的経緯により性別で異なる可能性があり(男性1万円/女性5万円という情報がある)、本アプリはisSingleParentを性別区別なしの単一フラグとしているため一律10,000円を暫定値としている。要確認パラメータ。"
+    "verifiedAt": "2026-08-15",
+    "notes": "令和7年度改正で基礎控除・給与所得控除の見直しがあった年分。基礎控除は本則58万円に上乗せ特例(合計所得132万円以下95万円/336万円以下88万円/489万円以下68万円/655万円以下63万円)。扶養親族・同一生計配偶者の合計所得金額要件は58万円(spouseDeduction.regularIncomeLimit)。residentTax.humanDeductionDiff.singleParentは10,000円としているが、ひとり親控除の人的控除差は歴史的経緯により性別で異なる可能性があり(男性1万円/女性5万円という情報がある)、本アプリはisSingleParentを性別区別なしの単一フラグとしているため一律10,000円を暫定値としている。要確認パラメータ。"
   },
   "incomeTax": {
     "salaryDeduction": {
       "minimumGuarantee": 650000,
       "brackets": [
-        { "upTo": 1625000, "rate": 0, "addend": 0 },
-        { "upTo": 1800000, "rate": 0.4, "addend": -100000 },
-        { "upTo": 3600000, "rate": 0.3, "addend": 80000 },
-        { "upTo": 6600000, "rate": 0.2, "addend": 440000 },
-        { "upTo": 8500000, "rate": 0.1, "addend": 1100000 },
-        { "upTo": null, "rate": 0, "addend": 1950000 }
+        {
+          "upTo": 1625000,
+          "rate": 0,
+          "addend": 0
+        },
+        {
+          "upTo": 1800000,
+          "rate": 0.4,
+          "addend": -100000
+        },
+        {
+          "upTo": 3600000,
+          "rate": 0.3,
+          "addend": 80000
+        },
+        {
+          "upTo": 6600000,
+          "rate": 0.2,
+          "addend": 440000
+        },
+        {
+          "upTo": 8500000,
+          "rate": 0.1,
+          "addend": 1100000
+        },
+        {
+          "upTo": null,
+          "rate": 0,
+          "addend": 1950000
+        }
       ]
     },
     "basicDeduction": [
-      { "upTo": 1320000, "amount": 950000 },
-      { "upTo": 3360000, "amount": 880000 },
-      { "upTo": 4890000, "amount": 680000 },
-      { "upTo": 6550000, "amount": 630000 },
-      { "upTo": 23500000, "amount": 580000 },
-      { "upTo": 24000000, "amount": 480000 },
-      { "upTo": 24500000, "amount": 320000 },
-      { "upTo": 25000000, "amount": 160000 },
-      { "upTo": null, "amount": 0 }
+      {
+        "upTo": 1320000,
+        "amount": 950000
+      },
+      {
+        "upTo": 3360000,
+        "amount": 880000
+      },
+      {
+        "upTo": 4890000,
+        "amount": 680000
+      },
+      {
+        "upTo": 6550000,
+        "amount": 630000
+      },
+      {
+        "upTo": 23500000,
+        "amount": 580000
+      },
+      {
+        "upTo": 24000000,
+        "amount": 480000
+      },
+      {
+        "upTo": 24500000,
+        "amount": 320000
+      },
+      {
+        "upTo": 25000000,
+        "amount": 160000
+      },
+      {
+        "upTo": null,
+        "amount": 0
+      }
     ],
     "brackets": [
-      { "upTo": 1950000, "rate": 0.05, "addend": 0 },
-      { "upTo": 3300000, "rate": 0.1, "addend": 97500 },
-      { "upTo": 6950000, "rate": 0.2, "addend": 427500 },
-      { "upTo": 9000000, "rate": 0.23, "addend": 636000 },
-      { "upTo": 18000000, "rate": 0.33, "addend": 1536000 },
-      { "upTo": 40000000, "rate": 0.4, "addend": 2796000 },
-      { "upTo": null, "rate": 0.45, "addend": 4796000 }
+      {
+        "upTo": 1950000,
+        "rate": 0.05,
+        "addend": 0
+      },
+      {
+        "upTo": 3300000,
+        "rate": 0.1,
+        "addend": 97500
+      },
+      {
+        "upTo": 6950000,
+        "rate": 0.2,
+        "addend": 427500
+      },
+      {
+        "upTo": 9000000,
+        "rate": 0.23,
+        "addend": 636000
+      },
+      {
+        "upTo": 18000000,
+        "rate": 0.33,
+        "addend": 1536000
+      },
+      {
+        "upTo": 40000000,
+        "rate": 0.4,
+        "addend": 2796000
+      },
+      {
+        "upTo": null,
+        "rate": 0.45,
+        "addend": 4796000
+      }
     ],
     "lifeInsurance": {
-      "newGeneral": { "brackets": [
-        { "upTo": 20000, "rate": 1, "addend": 0 },
-        { "upTo": 40000, "rate": 0.5, "addend": 10000 },
-        { "upTo": 80000, "rate": 0.25, "addend": 20000 },
-        { "upTo": null, "rate": 0, "addend": 40000 }
-      ]},
-      "newNursing": { "brackets": [
-        { "upTo": 20000, "rate": 1, "addend": 0 },
-        { "upTo": 40000, "rate": 0.5, "addend": 10000 },
-        { "upTo": 80000, "rate": 0.25, "addend": 20000 },
-        { "upTo": null, "rate": 0, "addend": 40000 }
-      ]},
-      "newPension": { "brackets": [
-        { "upTo": 20000, "rate": 1, "addend": 0 },
-        { "upTo": 40000, "rate": 0.5, "addend": 10000 },
-        { "upTo": 80000, "rate": 0.25, "addend": 20000 },
-        { "upTo": null, "rate": 0, "addend": 40000 }
-      ]},
-      "oldGeneral": { "brackets": [
-        { "upTo": 25000, "rate": 1, "addend": 0 },
-        { "upTo": 50000, "rate": 0.5, "addend": 12500 },
-        { "upTo": 100000, "rate": 0.25, "addend": 25000 },
-        { "upTo": null, "rate": 0, "addend": 50000 }
-      ]},
-      "oldPension": { "brackets": [
-        { "upTo": 25000, "rate": 1, "addend": 0 },
-        { "upTo": 50000, "rate": 0.5, "addend": 12500 },
-        { "upTo": 100000, "rate": 0.25, "addend": 25000 },
-        { "upTo": null, "rate": 0, "addend": 50000 }
-      ]},
+      "newGeneral": {
+        "brackets": [
+          {
+            "upTo": 20000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 40000,
+            "rate": 0.5,
+            "addend": 10000
+          },
+          {
+            "upTo": 80000,
+            "rate": 0.25,
+            "addend": 20000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 40000
+          }
+        ]
+      },
+      "newNursing": {
+        "brackets": [
+          {
+            "upTo": 20000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 40000,
+            "rate": 0.5,
+            "addend": 10000
+          },
+          {
+            "upTo": 80000,
+            "rate": 0.25,
+            "addend": 20000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 40000
+          }
+        ]
+      },
+      "newPension": {
+        "brackets": [
+          {
+            "upTo": 20000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 40000,
+            "rate": 0.5,
+            "addend": 10000
+          },
+          {
+            "upTo": 80000,
+            "rate": 0.25,
+            "addend": 20000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 40000
+          }
+        ]
+      },
+      "oldGeneral": {
+        "brackets": [
+          {
+            "upTo": 25000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 50000,
+            "rate": 0.5,
+            "addend": 12500
+          },
+          {
+            "upTo": 100000,
+            "rate": 0.25,
+            "addend": 25000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 50000
+          }
+        ]
+      },
+      "oldPension": {
+        "brackets": [
+          {
+            "upTo": 25000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 50000,
+            "rate": 0.5,
+            "addend": 12500
+          },
+          {
+            "upTo": 100000,
+            "rate": 0.25,
+            "addend": 25000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 50000
+          }
+        ]
+      },
       "newTotalCap": 120000
     },
     "earthquakeInsurance": {
@@ -95,18 +264,50 @@
     "spouseDeduction": {
       "regularGeneralBase": 380000,
       "regularElderlyBase": 480000,
+      "regularIncomeLimit": 580000,
+      "specialIncomeLimit": 1330000,
       "special": [
-        { "spouseIncomeUpTo": 950000, "amount": 380000 },
-        { "spouseIncomeUpTo": 1000000, "amount": 360000 },
-        { "spouseIncomeUpTo": 1050000, "amount": 310000 },
-        { "spouseIncomeUpTo": 1100000, "amount": 260000 },
-        { "spouseIncomeUpTo": 1150000, "amount": 210000 },
-        { "spouseIncomeUpTo": 1200000, "amount": 160000 },
-        { "spouseIncomeUpTo": 1250000, "amount": 110000 },
-        { "spouseIncomeUpTo": 1300000, "amount": 60000 },
-        { "spouseIncomeUpTo": 1330000, "amount": 30000 }
+        {
+          "spouseIncomeUpTo": 950000,
+          "amount": 380000
+        },
+        {
+          "spouseIncomeUpTo": 1000000,
+          "amount": 360000
+        },
+        {
+          "spouseIncomeUpTo": 1050000,
+          "amount": 310000
+        },
+        {
+          "spouseIncomeUpTo": 1100000,
+          "amount": 260000
+        },
+        {
+          "spouseIncomeUpTo": 1150000,
+          "amount": 210000
+        },
+        {
+          "spouseIncomeUpTo": 1200000,
+          "amount": 160000
+        },
+        {
+          "spouseIncomeUpTo": 1250000,
+          "amount": 110000
+        },
+        {
+          "spouseIncomeUpTo": 1300000,
+          "amount": 60000
+        },
+        {
+          "spouseIncomeUpTo": 1330000,
+          "amount": 30000
+        }
       ],
-      "taxpayerIncomeTierThresholds": [9000000, 9500000],
+      "taxpayerIncomeTierThresholds": [
+        9000000,
+        9500000
+      ],
       "taxpayerIncomeCutoff": 10000000
     },
     "medical": {
@@ -121,42 +322,144 @@
   },
   "residentTax": {
     "basicDeduction": [
-      { "upTo": 24000000, "amount": 430000 },
-      { "upTo": 24500000, "amount": 290000 },
-      { "upTo": 25000000, "amount": 150000 },
-      { "upTo": null, "amount": 0 }
+      {
+        "upTo": 24000000,
+        "amount": 430000
+      },
+      {
+        "upTo": 24500000,
+        "amount": 290000
+      },
+      {
+        "upTo": 25000000,
+        "amount": 150000
+      },
+      {
+        "upTo": null,
+        "amount": 0
+      }
     ],
     "lifeInsurance": {
-      "newGeneral": { "brackets": [
-        { "upTo": 12000, "rate": 1, "addend": 0 },
-        { "upTo": 32000, "rate": 0.5, "addend": 6000 },
-        { "upTo": 56000, "rate": 0.25, "addend": 14000 },
-        { "upTo": null, "rate": 0, "addend": 28000 }
-      ]},
-      "newNursing": { "brackets": [
-        { "upTo": 12000, "rate": 1, "addend": 0 },
-        { "upTo": 32000, "rate": 0.5, "addend": 6000 },
-        { "upTo": 56000, "rate": 0.25, "addend": 14000 },
-        { "upTo": null, "rate": 0, "addend": 28000 }
-      ]},
-      "newPension": { "brackets": [
-        { "upTo": 12000, "rate": 1, "addend": 0 },
-        { "upTo": 32000, "rate": 0.5, "addend": 6000 },
-        { "upTo": 56000, "rate": 0.25, "addend": 14000 },
-        { "upTo": null, "rate": 0, "addend": 28000 }
-      ]},
-      "oldGeneral": { "brackets": [
-        { "upTo": 15000, "rate": 1, "addend": 0 },
-        { "upTo": 40000, "rate": 0.5, "addend": 7500 },
-        { "upTo": 70000, "rate": 0.25, "addend": 17500 },
-        { "upTo": null, "rate": 0, "addend": 35000 }
-      ]},
-      "oldPension": { "brackets": [
-        { "upTo": 15000, "rate": 1, "addend": 0 },
-        { "upTo": 40000, "rate": 0.5, "addend": 7500 },
-        { "upTo": 70000, "rate": 0.25, "addend": 17500 },
-        { "upTo": null, "rate": 0, "addend": 35000 }
-      ]},
+      "newGeneral": {
+        "brackets": [
+          {
+            "upTo": 12000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 32000,
+            "rate": 0.5,
+            "addend": 6000
+          },
+          {
+            "upTo": 56000,
+            "rate": 0.25,
+            "addend": 14000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 28000
+          }
+        ]
+      },
+      "newNursing": {
+        "brackets": [
+          {
+            "upTo": 12000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 32000,
+            "rate": 0.5,
+            "addend": 6000
+          },
+          {
+            "upTo": 56000,
+            "rate": 0.25,
+            "addend": 14000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 28000
+          }
+        ]
+      },
+      "newPension": {
+        "brackets": [
+          {
+            "upTo": 12000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 32000,
+            "rate": 0.5,
+            "addend": 6000
+          },
+          {
+            "upTo": 56000,
+            "rate": 0.25,
+            "addend": 14000
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 28000
+          }
+        ]
+      },
+      "oldGeneral": {
+        "brackets": [
+          {
+            "upTo": 15000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 40000,
+            "rate": 0.5,
+            "addend": 7500
+          },
+          {
+            "upTo": 70000,
+            "rate": 0.25,
+            "addend": 17500
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 35000
+          }
+        ]
+      },
+      "oldPension": {
+        "brackets": [
+          {
+            "upTo": 15000,
+            "rate": 1,
+            "addend": 0
+          },
+          {
+            "upTo": 40000,
+            "rate": 0.5,
+            "addend": 7500
+          },
+          {
+            "upTo": 70000,
+            "rate": 0.25,
+            "addend": 17500
+          },
+          {
+            "upTo": null,
+            "rate": 0,
+            "addend": 35000
+          }
+        ]
+      },
       "newTotalCap": 70000
     },
     "earthquakeInsurance": {
@@ -180,17 +483,46 @@
     "spouseDeduction": {
       "regularGeneralBase": 330000,
       "regularElderlyBase": 380000,
+      "regularIncomeLimit": 580000,
+      "specialIncomeLimit": 1330000,
       "special": [
-        { "spouseIncomeUpTo": 1000000, "amount": 330000 },
-        { "spouseIncomeUpTo": 1050000, "amount": 310000 },
-        { "spouseIncomeUpTo": 1100000, "amount": 260000 },
-        { "spouseIncomeUpTo": 1150000, "amount": 210000 },
-        { "spouseIncomeUpTo": 1200000, "amount": 160000 },
-        { "spouseIncomeUpTo": 1250000, "amount": 110000 },
-        { "spouseIncomeUpTo": 1300000, "amount": 60000 },
-        { "spouseIncomeUpTo": 1330000, "amount": 30000 }
+        {
+          "spouseIncomeUpTo": 1000000,
+          "amount": 330000
+        },
+        {
+          "spouseIncomeUpTo": 1050000,
+          "amount": 310000
+        },
+        {
+          "spouseIncomeUpTo": 1100000,
+          "amount": 260000
+        },
+        {
+          "spouseIncomeUpTo": 1150000,
+          "amount": 210000
+        },
+        {
+          "spouseIncomeUpTo": 1200000,
+          "amount": 160000
+        },
+        {
+          "spouseIncomeUpTo": 1250000,
+          "amount": 110000
+        },
+        {
+          "spouseIncomeUpTo": 1300000,
+          "amount": 60000
+        },
+        {
+          "spouseIncomeUpTo": 1330000,
+          "amount": 30000
+        }
       ],
-      "taxpayerIncomeTierThresholds": [9000000, 9500000],
+      "taxpayerIncomeTierThresholds": [
+        9000000,
+        9500000
+      ],
       "taxpayerIncomeCutoff": 10000000
     },
     "municipalIncomeRateStandard": 0.06,
@@ -212,8 +544,14 @@
     "furusatoIncomeRatioCap": 0.3,
     "furusatoSpecialCapRatio": 0.2,
     "housingLoanCapRules": {
-      "rule5pct97500": { "ratio": 0.05, "cap": 97500 },
-      "rule7pct136500": { "ratio": 0.07, "cap": 136500 }
+      "rule5pct97500": {
+        "ratio": 0.05,
+        "cap": 97500
+      },
+      "rule7pct136500": {
+        "ratio": 0.07,
+        "cap": 136500
+      }
     },
     "nonTaxableThreshold": {
       "baseNoDependents": 450000,

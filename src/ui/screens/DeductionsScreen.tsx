@@ -84,7 +84,7 @@ export function DeductionsScreen() {
   const d = profile.deductions;
   const incomeAfterLeave = applyLeavePeriods(profile.income, profile.year);
   const socialInsuranceActualSum = (sumMonthlySocialInsurance(incomeAfterLeave) + sumBonusSocialInsurance(incomeAfterLeave)) as Yen;
-  const childUnder23CapApplicable = params.incomeTax.lifeInsurance.newGeneralChildUnder23Cap !== undefined;
+  const childUnder23CapApplicable = params.incomeTax.lifeInsurance.newGeneralChildUnder23 !== undefined;
   // ワンストップ特例併用不可の警告はdomain/warnings.tsのW-04判定をそのまま参照する(UI側で条件を
   // 再実装するとロジックがドリフトするため。実装後レビュー対応)。
   const oneStopWarningActive = calculationResult.warnings.some((w) => w.id === 'W-04');

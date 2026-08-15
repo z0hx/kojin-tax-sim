@@ -28,10 +28,9 @@ export function lookupBasicDeduction(totalIncome: Yen, table: AmountBracket[]): 
   return lookupAmountBracket(totalIncome, table);
 }
 
-function calcInsuranceBracketValue(paid: number, table: InsuranceBracketTable, capOverride?: number): Yen {
+function calcInsuranceBracketValue(paid: number, table: InsuranceBracketTable): Yen {
   const bracket = table.brackets.find((b) => b.upTo === null || paid <= b.upTo) ?? table.brackets[table.brackets.length - 1];
-  const value = bracket.rate === 0 && capOverride !== undefined ? capOverride : paid * bracket.rate + bracket.addend;
-  return floorYen(Math.max(0, value));
+  return floorYen(Math.max(0, paid * bracket.rate + bracket.addend));
 }
 
 function finalCap(table: InsuranceBracketTable): number {
@@ -44,10 +43,12 @@ function combineNewOld(newAmount: Yen, oldAmount: Yen, cap: number): Yen {
 
 /** 03詳細設計書§3.3。新旧・区分ごとに計算し、区分単位・合計単位の上限を適用する */
 export function calcLifeInsuranceDeduction(input: LifeInsuranceInput, table: LifeInsuranceTable): Yen {
-  const generalCapOverride = input.hasChildUnder23 ? table.newGeneralChildUnder23Cap : undefined;
-  const newGeneral = calcInsuranceBracketValue(input.new.general, table.newGeneral, generalCapOverride);
+  // 令和8年分の子育て世帯特例は、上限だけでなく区分の境目も含めて別の表になる(schema.ts参照)。
+  // 特例のある年分でのみnewGeneralChildUnder23を持つため、無い年分は通常の表を使う。
+  const newGeneralTable = (input.hasChildUnder23 && table.newGeneralChildUnder23) || table.newGeneral;
+  const newGeneral = calcInsuranceBracketValue(input.new.general, newGeneralTable);
   const oldGeneral = calcInsuranceBracketValue(input.old.general, table.oldGeneral);
-  const generalCap = generalCapOverride ?? finalCap(table.newGeneral);
+  const generalCap = finalCap(newGeneralTable);
   const general = combineNewOld(newGeneral, oldGeneral, generalCap);
 
   const nursing = calcInsuranceBracketValue(input.new.nursing, table.newNursing);
@@ -132,7 +133,7 @@ function spouseTierMultiplier(taxpayerTotalIncome: number, thresholds: [number, 
 
 /**
  * 配偶者控除・配偶者特別控除。納税者本人の合計所得金額(900万/950万/1000万円)による逓減と、
- * 配偶者の合計所得金額(48万円以下=配偶者控除、48万円超133万円以下=配偶者特別控除)の
+ * 配偶者の合計所得金額(regularIncomeLimit以下=配偶者控除、それ超specialIncomeLimit以下=配偶者特別控除)の
  * 両方を考慮する(03詳細設計書§3.2、実装時にHigh#1として是正)。
  */
 export function calcSpouseDeduction(
@@ -142,12 +143,14 @@ export function calcSpouseDeduction(
 ): Yen {
   if (!input) return 0 as Yen;
   if (taxpayerTotalIncome > table.taxpayerIncomeCutoff) return 0 as Yen;
-  if (input.totalIncome > 1_330_000) return 0 as Yen;
+  if (input.totalIncome > table.specialIncomeLimit) return 0 as Yen;
 
   const multiplier = spouseTierMultiplier(taxpayerTotalIncome, table.taxpayerIncomeTierThresholds);
   const scale = (base: number) => (multiplier === 1 ? base : roundToTenThousand(base * multiplier));
 
-  if (input.totalIncome <= 480_000) {
+  // 配偶者控除の対象となる合計所得金額の上限は年分で動く(令和6年分まで48万円、令和7年分58万円、
+  // 令和8年分以後62万円)。ハードコードすると改正年に静かに古い判定を続けるためパラメータから取る。
+  if (input.totalIncome <= table.regularIncomeLimit) {
     return scale(input.isElderly ? table.regularElderlyBase : table.regularGeneralBase) as Yen;
   }
 

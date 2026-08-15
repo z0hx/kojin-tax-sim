@@ -136,7 +136,11 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
   // 住民税の非課税限度額。所得割の基準額のほうが均等割より高いため、扶養親族等がいる場合は
   // 「均等割は課税されるが所得割は非課税」という帯域が生じうる(レビュー2巡目High#1是正)。
   // 頭数には扶養親族に加え、同一生計配偶者(合計所得48万円以下)も含める(レビュー3巡目High是正)。
-  const nonTaxableHeadcount = calcNonTaxableHeadcount(profile.deductions.dependents.length, profile.deductions.spouse);
+  const nonTaxableHeadcount = calcNonTaxableHeadcount(
+    profile.deductions.dependents.length,
+    profile.deductions.spouse,
+    params.residentTax.spouseDeduction.regularIncomeLimit
+  );
   const incomeNonTaxable = isIncomeLevyNonTaxable(totalIncome, nonTaxableHeadcount, params.residentTax.nonTaxableThreshold);
   const perCapitaNonTaxable = isPerCapitaLevyNonTaxable(totalIncome, nonTaxableHeadcount, params.residentTax.nonTaxableThreshold);
 
