@@ -22,6 +22,15 @@ export function withDonations(furusato: FurusatoInput, donations: DonationRecord
   return { ...furusato, donations, donatedAmount: sumDonations(donations) };
 }
 
+/**
+ * その年分の寄附がワンストップ特例で処理されるか(02仕様書§3.3.2)。税額計算の分岐に使う。
+ * 「ワンストップ特例を選んでいる」だけでなく、制度上実際に使えることまで確認する。
+ * 使えない場合(医療費控除がある年など)は確定申告することになるため、確定申告ルートで計算する。
+ */
+export function usesOneStopSpecial(profile: YearProfile): boolean {
+  return profile.furusato.method === 'oneStop' && evaluateOneStopEligibility(profile).eligible;
+}
+
 export interface OneStopEligibility {
   eligible: boolean;
   deadline: string;

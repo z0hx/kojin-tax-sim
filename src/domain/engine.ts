@@ -30,6 +30,7 @@ import {
 import {
   calcAdjustmentCredit,
   calcFurusatoBasicCredit,
+  calcFurusatoOneStopCredit,
   calcFurusatoSpecialCredit,
   calcHumanDeductionDiff,
   calcIncomeLevy,
@@ -39,7 +40,9 @@ import {
   calcPerCapitaLevy,
   isIncomeLevyNonTaxable,
   isPerCapitaLevyNonTaxable,
+  lookupFurusatoSpecialRate,
 } from './residentTax';
+import { usesOneStopSpecial } from './donations';
 import {
   type CalculationResult,
   type DeductionBreakdown,
@@ -78,7 +81,10 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
 
   // --- 2. 所得控除(所得税) ---
   const dedIncomeTaxBase = calcIncomeTaxDeductionBreakdown(profile, totalIncome, socialInsuranceSum, params);
-  const donationDeduction = donation > 0
+  // ワンストップ特例では所得税の寄附金控除を行わず、相当額を住民税の申告特例控除額として控除する
+  // (02仕様書§3.3.2)。住宅ローン控除で所得税額が0円の年でも自己負担が2,000円で収まるのはこのため。
+  const oneStop = usesOneStopSpecial(profile);
+  const donationDeduction = donation > 0 && !oneStop
     ? floorYen(Math.max(0, Math.min(donation, totalIncome * params.incomeTax.donationDeductionIncomeRatioCap) - 2000))
     : (0 as Yen);
   const incomeTaxDeductions = withDonation(dedIncomeTaxBase, donationDeduction);
@@ -196,18 +202,32 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
   const furusatoCreditBasic = incomeNonTaxable
     ? (0 as Yen)
     : calcFurusatoBasicCredit(donation, totalIncome, params.residentTax.furusatoBasicRate, params.residentTax.furusatoIncomeRatioCap);
+  // 特例分・申告特例控除額の税率は、所得税の課税総所得金額ではなく
+  // 「住民税の課税総所得金額 − 人的控除差の合計額」に応じた税率を使う(02仕様書§3.3.2)。
+  const furusatoRate = lookupFurusatoSpecialRate(taxableResident, humanDeductionDiff, params.incomeTax.brackets);
   const specialResult = incomeNonTaxable
     ? { raw: 0 as Yen, capped: 0 as Yen, capReached: false }
     : calcFurusatoSpecialCredit(
         donation,
         totalIncome,
-        rate,
+        furusatoRate,
         incomeLevyBasisForCap,
         params.residentTax.furusatoIncomeRatioCap,
         params.residentTax.furusatoSpecialCapRatio,
         params.incomeTax.reconstructionSurtaxRate
       );
+  const furusatoCreditOneStop =
+    oneStop && !incomeNonTaxable
+      ? calcFurusatoOneStopCredit(specialResult.capped, furusatoRate, params.incomeTax.reconstructionSurtaxRate)
+      : (0 as Yen);
   push('furusatoCreditBasic', '寄附金税額控除(基本分)', furusatoCreditBasic, '(対象寄附額 − 2,000円) × 10%', ['02仕様書§3.3.2']);
+  push(
+    'furusatoSpecialRate',
+    '特例分の算式に使う所得税率',
+    furusatoRate,
+    '(住民税の課税総所得金額 − 人的控除差の合計) に応じた所得税の税率。0円以下なら0%',
+    ['02仕様書§3.3.2']
+  );
   push(
     'furusatoCreditSpecial',
     '寄附金税額控除(特例分)',
@@ -215,8 +235,17 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
     '(対象寄附額 − 2,000円) × (90% − 所得税率×1.021)、「ふるさと納税20%枠の基準となる所得割額」×20%を上限',
     ['02仕様書§3.3.2']
   );
+  push(
+    'furusatoCreditOneStop',
+    '申告特例控除額(ワンストップ特例)',
+    furusatoCreditOneStop,
+    oneStop
+      ? '特例分 × (所得税率×1.021) ÷ (90% − 所得税率×1.021)。所得税の寄附金控除を行わない代わりに住民税から控除する'
+      : '確定申告ルート(所得税の寄附金控除を適用)のため0円',
+    ['02仕様書§3.3.2']
+  );
 
-  const afterFurusato = Math.max(0, incomeLevy - furusatoCreditBasic - specialResult.capped) as Yen;
+  const afterFurusato = Math.max(0, incomeLevy - furusatoCreditBasic - specialResult.capped - furusatoCreditOneStop) as Yen;
   const { used: hlUsedResident, wasted: hlWasted } = incomeNonTaxable
     ? { used: 0 as Yen, wasted: hlCarried }
     : applyToResidentTax(hlCarried, hlResidentCap, afterFurusato);
@@ -258,6 +287,7 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
       incomeLevyForFurusatoCap,
       furusatoCreditBasic,
       furusatoCreditSpecial: specialResult.capped,
+      furusatoCreditOneStop,
       housingLoanApplied: hlUsedResident,
       incomeLevyFinal,
       perCapitaLevy,
@@ -271,7 +301,13 @@ export function calcSnapshot(profile: YearProfile, donation: Yen, params: TaxPar
       wasted: hlWasted,
     },
     marginalRate: rate,
-    furusato: { basicCredit: furusatoCreditBasic, specialCredit: specialResult.capped, specialCapReached: specialResult.capReached },
+    furusato: {
+      basicCredit: furusatoCreditBasic,
+      specialCredit: specialResult.capped,
+      oneStopCredit: furusatoCreditOneStop,
+      usesOneStop: oneStop,
+      specialCapReached: specialResult.capReached,
+    },
     trace,
   };
 }
@@ -315,6 +351,7 @@ export function buildCalculationResult(
         incomeTaxReduction: (snapshotAtZero.incomeTax.total - limitStandard.snapshotAtLimit.incomeTax.total) as Yen,
         residentBasic: limitStandard.snapshotAtLimit.residentTax.furusatoCreditBasic,
         residentSpecial: limitStandard.snapshotAtLimit.residentTax.furusatoCreditSpecial,
+        residentOneStop: limitStandard.snapshotAtLimit.residentTax.furusatoCreditOneStop,
         selfBurden: selfBurdenAtLimit,
       },
       specialCapReached: limitStandard.snapshotAtLimit.furusato.specialCapReached,

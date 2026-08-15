@@ -266,7 +266,7 @@ export interface TaxSnapshot {
   residentTax: CalculationResult['residentTax'];
   housingLoan: CalculationResult['housingLoan'];
   marginalRate: number;
-  furusato: { basicCredit: Yen; specialCredit: Yen; specialCapReached: boolean };
+  furusato: { basicCredit: Yen; specialCredit: Yen; oneStopCredit: Yen; usesOneStop: boolean; specialCapReached: boolean };
   trace: TraceStep[];
 }
 
@@ -315,6 +315,8 @@ export interface CalculationResult {
     incomeLevyForFurusatoCap: Yen;
     furusatoCreditBasic: Yen;
     furusatoCreditSpecial: Yen;
+    /** ワンストップ特例の申告特例控除額。確定申告ルート(所得税の寄附金控除を使う)では0円 */
+    furusatoCreditOneStop: Yen;
     housingLoanApplied: Yen;
     incomeLevyFinal: Yen;
     perCapitaLevy: Yen;
@@ -336,6 +338,8 @@ export interface CalculationResult {
       incomeTaxReduction: Yen;
       residentBasic: Yen;
       residentSpecial: Yen;
+      /** ワンストップ特例の申告特例控除額(確定申告ルートでは0円)。4区分の合計が寄附額と一致する */
+      residentOneStop: Yen;
       selfBurden: Yen;
     };
     specialCapReached: boolean;
