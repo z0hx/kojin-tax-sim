@@ -49,6 +49,8 @@ function findOverlapAmongExisting(periods: LeavePeriod[], year: number): [LeaveP
  * S-02 育休・産休期間エディタ(02仕様書§5)。
  * ドラッグでの月範囲選択に加え、プルダウンによる非ドラッグの追加手段を必ず併設する(M-5対応、アクセシビリティ確保)。
  * ドラッグ操作はプルダウンの値を更新するだけで、実際の保存は共通の「追加」ボタン操作を通す。
+ * 期間に含めた月は給与・社会保険料が0円固定になるため、月の途中で休業に入った月・復職した月は
+ * 期間に含めず月次グリッドに実額を入力する必要がある。この使い分けは画面上に明記する。
  */
 export function LeavePeriodEditor({ leavePeriods, year, onChange }: LeavePeriodEditorProps) {
   const [type, setType] = useState<LeavePeriod['type']>('childcare');
@@ -109,9 +111,23 @@ export function LeavePeriodEditor({ leavePeriods, year, onChange }: LeavePeriodE
         </div>
       )}
 
-      <p style={{ margin: '0 0 0.25rem', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
-        下のバーをドラッグして期間を選ぶか、プルダウンで開始月・終了月を選んでください。
+      <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+        下のバーをドラッグして期間を選ぶか、プルダウンで開始月・終了月を選んでください。期間は月単位で扱い、給与が1円も支払われない月だけを選びます。
       </p>
+      <details style={{ border: '1px solid var(--color-border)', borderRadius: 6, marginBottom: '0.75rem', fontSize: '0.85rem' }}>
+        <summary style={{ padding: '0.5rem 0.6rem', cursor: 'pointer' }}>月の途中で休業に入った月・復職した月の入力方法</summary>
+        <div style={{ padding: '0 0.6rem 0.6rem', color: 'var(--color-muted)', lineHeight: 1.7 }}>
+          <p style={{ margin: '0 0 0.5rem' }}>
+            期間に選んだ月は、給与も社会保険料も0円に固定されます。月の途中で休業に入った月と復職した月は日割りの給与が支払われるため、期間には含めないでください。含めるとその月の給与が0円として扱われ、年収を過少に見積もります。
+          </p>
+          <p style={{ margin: '0 0 0.5rem' }}>
+            期間に含めなかった月は、「月次収入・社会保険料」に給与明細どおりの金額を入力してください。社会保険料は実際に控除された額(免除されていれば0円)を入力します。社会保険料の免除は休業開始日の属する月から終了日の翌日が属する月の前月までなので、休業に入った月は給与が出ていても社会保険料が0円になることがあり、復職した月は月末時点で復職していれば通常どおり控除されます。
+          </p>
+          <p style={{ margin: 0 }}>
+            例: 4月10日から10月20日まで育児休業を取った場合、期間は5月〜9月として登録し、4月と10月は日割りの給与と実際の社会保険料を月次収入に入力します。給付金額は月割りにせず、その休業で受け取る額を登録した期間にまとめて入力して構いません(非課税のため税額計算には使わず、手取りの参考表示のみに使います)。
+          </p>
+        </div>
+      </details>
       <div
         role="group"
         aria-label="育休期間の月選択バー"

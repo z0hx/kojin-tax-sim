@@ -23,6 +23,14 @@ describe('LeavePeriodEditor', () => {
     expect(onChange).toHaveBeenCalledWith([{ type: 'childcare', startYm: '2026-01', endYm: '2026-03', benefitAmount: 300000 }]);
   });
 
+  it('月の途中で休業に入った月・復職した月の入力方法を画面上で案内する', () => {
+    render(<LeavePeriodEditor leavePeriods={[]} year={2026} onChange={vi.fn()} />);
+
+    expect(screen.getByText('月の途中で休業に入った月・復職した月の入力方法')).toBeInTheDocument();
+    expect(screen.getByText(/期間には含めないでください/)).toBeInTheDocument();
+    expect(screen.getByText(/給与明細どおりの金額を入力してください/)).toBeInTheDocument();
+  });
+
   it('ドラッグ操作(mousedown→mouseenter→mouseup)でプルダウンの開始月・終了月が更新される', () => {
     render(<LeavePeriodEditor leavePeriods={[]} year={2026} onChange={vi.fn()} />);
 
